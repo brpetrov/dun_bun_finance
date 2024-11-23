@@ -28,21 +28,21 @@ class SQLHelper {
     """);
   }
 
-  static Future<void> alterExpensesTable() async {
-    final db = await SQLHelper.db();
-    try {
-      // Add isLoan column with a default value of 0
-      await db
-          .execute('ALTER TABLE expenses ADD COLUMN isLoan INTEGER DEFAULT 0');
-      // Add loanStartDate column
-      await db.execute('ALTER TABLE expenses ADD COLUMN loanStartDate TEXT');
-      // Add loanEndDate column
-      await db.execute('ALTER TABLE expenses ADD COLUMN loanEndDate TEXT');
-      print("Columns added successfully to expenses table.");
-    } catch (e) {
-      print("Error altering table: $e");
-    }
-  }
+  // static Future<void> alterExpensesTable() async {
+  //   final db = await SQLHelper.db();
+  //   try {
+  //     // Add isLoan column with a default value of 0
+  //     await db
+  //         .execute('ALTER TABLE expenses ADD COLUMN isLoan BIT DEFAULT 0');
+  //     // Add loanStartDate column
+  //     await db.execute('ALTER TABLE expenses ADD COLUMN loanStartDate TEXT');
+  //     // Add loanEndDate column
+  //     await db.execute('ALTER TABLE expenses ADD COLUMN loanEndDate TEXT');
+  //     print("Columns added successfully to expenses table.");
+  //   } catch (e) {
+  //     print("Error altering table: $e");
+  //   }
+  // }
 
   // Open database or create it
   static Future<sql.Database> db() async {
@@ -65,7 +65,7 @@ class SQLHelper {
     final data = {
       'name': name,
       'cost': cost,
-      'isLoan': isLoan ? 1 : 0, // Convert boolean to integer for SQLite
+      'isLoan': isLoan ? 1 : 0,
       'loanStartDate': loanStartDate,
       'loanEndDate': loanEndDate,
     };
