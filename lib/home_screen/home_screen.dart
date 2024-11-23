@@ -72,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Dun Bun Finance"),
-        backgroundColor: Theme.of(context).colorScheme.secondary,
+        backgroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
