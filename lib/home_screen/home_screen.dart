@@ -38,7 +38,12 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => isLoading = true);
     try {
       pots = await SQLHelper.getPots();
-      expenses = await SQLHelper.getExpenses();
+      var allExpenses = await SQLHelper.getExpenses();
+      final loanItems =
+          allExpenses.where((item) => item['isLoan'] == 1).toList();
+      final nonLoanItems =
+          allExpenses.where((item) => item['isLoan'] != 1).toList();
+      expenses = [...loanItems, ...nonLoanItems];
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -82,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
               calculateTotalExpenses();
               calculateIncomeAfterExpenses();
             },
-          )
+          ),
         ],
       ),
       body: isLoading

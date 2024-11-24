@@ -1,5 +1,5 @@
 import 'package:dun_bun_finance/db_helper.dart';
-import 'package:dun_bun_finance/expense.dart';
+import 'package:dun_bun_finance/models/expense.dart';
 import 'package:flutter/material.dart';
 
 class ExpensesSection extends StatefulWidget {
@@ -343,7 +343,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.add, color: Colors.blue),
+                icon: const Icon(Icons.add),
                 onPressed: () => showExpensePopup(context, null),
               ),
             ],

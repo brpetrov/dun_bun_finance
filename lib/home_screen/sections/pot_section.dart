@@ -198,7 +198,7 @@ class _PotsSectionState extends State<PotsSection> {
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.add, color: Colors.blue),
+                icon: const Icon(Icons.add),
                 onPressed: () => showPotPopup(context, null),
               ),
             ],

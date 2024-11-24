@@ -1,4 +1,4 @@
-import 'package:dun_bun_finance/expense.dart';
+import 'package:dun_bun_finance/models/expense.dart';
 import 'package:dun_bun_finance/models/pot.dart';
 import 'package:sqflite/sqflite.dart' as sql;
 import 'package:path_provider/path_provider.dart';
