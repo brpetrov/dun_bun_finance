@@ -4,6 +4,7 @@ import 'package:dun_bun_finance/home_screen/home_screen.dart';
 import 'package:dun_bun_finance/login_screen/login_screen.dart';
 import 'package:flutter/foundation.dart'; // For checking platform
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 
@@ -39,6 +40,9 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        textTheme: GoogleFonts.montserratTextTheme(),
+      ),
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
