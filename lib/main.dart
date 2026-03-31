@@ -2,6 +2,7 @@
 
 import 'package:dun_bun_finance/home_screen/home_screen.dart';
 import 'package:dun_bun_finance/login_screen/login_screen.dart';
+import 'package:dun_bun_finance/services/auth_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:dun_bun_finance/firebase_options.dart';
 import 'package:flutter/foundation.dart'; // For checking platform
@@ -25,7 +26,8 @@ void main() async {
     databaseFactory = databaseFactoryFfi; // Set the factory for sqflite
   }
 
-  runApp(const MainApp());
+  final initialRoute = AuthService.currentUser != null ? '/home' : '/login';
+  runApp(MainApp(initialRoute: initialRoute));
 
   if (defaultTargetPlatform == TargetPlatform.windows) {
     doWhenWindowReady(() {
@@ -40,7 +42,8 @@ void main() async {
 }
 
 class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+  final String initialRoute;
+  const MainApp({super.key, required this.initialRoute});
 
   @override
   Widget build(BuildContext context) {
@@ -49,10 +52,21 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         textTheme: GoogleFonts.montserratTextTheme(),
       ),
-      initialRoute: '/login',
+      initialRoute: initialRoute,
       routes: {
         '/login': (context) => const LoginScreen(),
-        '/home': (context) => const HomeScreen(),
+      },
+      onGenerateRoute: (settings) {
+        if (settings.name == '/home') {
+          final username = settings.arguments as String? ??
+              AuthService.currentUser?.displayName ??
+              AuthService.currentUser?.email?.split('@')[0] ??
+              'User';
+          return MaterialPageRoute(
+            builder: (context) => HomeScreen(username: username),
+          );
+        }
+        return null;
       },
     );
   }

@@ -3,10 +3,12 @@ import 'package:dun_bun_finance/home_screen/sections/expense_section.dart';
 import 'package:dun_bun_finance/home_screen/sections/monthly_income_section.dart';
 import 'package:dun_bun_finance/home_screen/sections/pot_section.dart';
 import 'package:dun_bun_finance/home_screen/sections/totals_section.dart';
+import 'package:dun_bun_finance/services/auth_service.dart';
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String username;
+  const HomeScreen({super.key, required this.username});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -76,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Dun Bun Finance"),
+        title: Text("Hello, ${widget.username}"),
         backgroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
         foregroundColor: Colors.white,
         actions: [
@@ -86,6 +88,15 @@ class _HomeScreenState extends State<HomeScreen> {
               await _refreshData();
               calculateTotalExpenses();
               calculateIncomeAfterExpenses();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await AuthService.signOut();
+              if (mounted) {
+                Navigator.of(context).pushReplacementNamed('/login');
+              }
             },
           ),
         ],
