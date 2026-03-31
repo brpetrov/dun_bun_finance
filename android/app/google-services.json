@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "872970425390",
+    "project_id": "dun-bun-finance",
+    "storage_bucket": "dun-bun-finance.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:872970425390:android:f50df7083870acec51fbbf",
+        "android_client_info": {
+          "package_name": "com.example.dun_bun_finance"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPK3j8e8ts_Nr2LQWlwWBa3I9cjqJvwL4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -2,6 +2,8 @@
 
 import 'package:dun_bun_finance/home_screen/home_screen.dart';
 import 'package:dun_bun_finance/login_screen/login_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:dun_bun_finance/firebase_options.dart';
 import 'package:flutter/foundation.dart'; // For checking platform
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +12,10 @@ import 'package:bitsdojo_window/bitsdojo_window.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   // Initialize ffi for desktop platforms
   if (defaultTargetPlatform == TargetPlatform.windows ||
