@@ -10,14 +10,13 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  sqflite_common_ffi: ^2.3.6
-  sqflite: ^2.2.0+3
-  path_provider: ^2.0.13
   bitsdojo_window: ^0.1.6
   google_fonts: ^6.1.0
   firebase_core: ^3.8.1
   firebase_auth: ^5.4.1
   cloud_firestore: ^5.6.1
+  local_auth: ^2.3.0
+  flutter_secure_storage: ^9.2.4
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,4 @@
-import 'package:dun_bun_finance/db_helper.dart';
+import 'package:dun_bun_finance/services/firestore_service.dart';
 import 'package:dun_bun_finance/home_screen/sections/expense_section.dart';
 import 'package:dun_bun_finance/home_screen/sections/monthly_income_section.dart';
 import 'package:dun_bun_finance/home_screen/sections/pot_section.dart';
@@ -39,20 +39,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refreshData() async {
     setState(() => isLoading = true);
     try {
-      pots = await SQLHelper.getPots();
-      var allExpenses = await SQLHelper.getExpenses();
+      pots = await FirestoreService.getPots();
+      var allExpenses = await FirestoreService.getExpenses();
       final loanItems =
-          allExpenses.where((item) => item['isLoan'] == 1).toList();
+          allExpenses.where((item) => item['isLoan'] == true).toList();
       final nonLoanItems =
-          allExpenses.where((item) => item['isLoan'] != 1).toList();
+          allExpenses.where((item) => item['isLoan'] != true).toList();
       expenses = [...loanItems, ...nonLoanItems];
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error loading data: $e"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error loading data: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -101,40 +103,42 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    MonthlyIncomeInput(
-                      controller: _monthlyIncomeController,
-                      onSubmit: calculateIncomeAfterExpenses,
-                    ),
-                    const Divider(),
-                    ExpensesSection(
-                        expenses: expenses,
-                        onExpenseUpdated: () async {
-                          await _refreshData();
-                          calculateTotalExpenses();
-                        }),
-                    const Divider(),
-                    TotalSection(
-                      totalExpenses: totalExpenses,
-                      incomeAfterExpenses: incomeAfterExpenses,
-                    ),
-                    const Divider(),
-                    PotsSection(
-                      pots: pots,
-                      onPotUpdated: _refreshData,
-                      incomeAfterExpenses: incomeAfterExpenses,
-                    ),
-                  ],
+      body: SafeArea(
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      MonthlyIncomeInput(
+                        controller: _monthlyIncomeController,
+                        onSubmit: calculateIncomeAfterExpenses,
+                      ),
+                      const Divider(),
+                      ExpensesSection(
+                          expenses: expenses,
+                          onExpenseUpdated: () async {
+                            await _refreshData();
+                            calculateTotalExpenses();
+                          }),
+                      const Divider(),
+                      TotalSection(
+                        totalExpenses: totalExpenses,
+                        incomeAfterExpenses: incomeAfterExpenses,
+                      ),
+                      const Divider(),
+                      PotsSection(
+                        pots: pots,
+                        onPotUpdated: _refreshData,
+                        incomeAfterExpenses: incomeAfterExpenses,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 }

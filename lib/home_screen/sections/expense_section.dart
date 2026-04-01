@@ -1,5 +1,4 @@
-import 'package:dun_bun_finance/db_helper.dart';
-import 'package:dun_bun_finance/models/expense.dart';
+import 'package:dun_bun_finance/services/firestore_service.dart';
 import 'package:flutter/material.dart';
 
 class ExpensesSection extends StatefulWidget {
@@ -17,7 +16,7 @@ class ExpensesSection extends StatefulWidget {
 }
 
 class _ExpensesSectionState extends State<ExpensesSection> {
-  bool isExpanded = true; // State to manage expand/collapse
+  bool isExpanded = true;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +28,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
 
     Future<void> addExpense() async {
       try {
-        await SQLHelper.createExpense(
+        await FirestoreService.createExpense(
           expenseNameController.text,
           double.parse(expenseCostController.text),
           isLoan,
@@ -38,30 +37,40 @@ class _ExpensesSectionState extends State<ExpensesSection> {
         );
         widget.onExpenseUpdated();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error adding expense: $e"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Error adding expense: $e"),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
     }
 
-    Future<void> updateExpense(Expense expense) async {
+    Future<void> updateExpense(String id) async {
       try {
-        await SQLHelper.updateExpense(expense);
+        await FirestoreService.updateExpense(id, {
+          'name': expenseNameController.text,
+          'cost': double.parse(expenseCostController.text),
+          'isLoan': isLoan,
+          'loanStartDate': loanStartDate?.toIso8601String(),
+          'loanEndDate': loanEndDate?.toIso8601String(),
+        });
         widget.onExpenseUpdated();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error updating expense: $e"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Error updating expense: $e"),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
     }
 
-    Future<void> deleteExpense(int id) async {
+    Future<void> deleteExpense(String id) async {
       try {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -69,25 +78,27 @@ class _ExpensesSectionState extends State<ExpensesSection> {
             backgroundColor: Colors.redAccent,
           ),
         );
-        await SQLHelper.deleteExpense(id);
+        await FirestoreService.deleteExpense(id);
         widget.onExpenseUpdated();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Error deleting expense: $e"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Error deleting expense: $e"),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
       }
     }
 
-    void showExpensePopup(BuildContext context, int? id) {
+    void showExpensePopup(BuildContext context, String? id) {
       if (id != null) {
         final expense =
             widget.expenses.firstWhere((element) => element['id'] == id);
         expenseNameController.text = expense['name'];
         expenseCostController.text = expense['cost'].toString();
-        isLoan = (expense['isLoan'] == 1); // Convert 0/1 to false/true
+        isLoan = expense['isLoan'] == true;
         final rawLoanStartDate = expense['loanStartDate'];
         final rawLoanEndDate = expense['loanEndDate'];
 
@@ -130,12 +141,8 @@ class _ExpensesSectionState extends State<ExpensesSection> {
 
               String? validateFields() {
                 if (isLoan) {
-                  if (loanStartDate == null) {
-                    return "Loan start date is required.";
-                  }
-                  if (loanEndDate == null) {
-                    return "Loan end date is required.";
-                  }
+                  if (loanStartDate == null) return "Loan start date is required.";
+                  if (loanEndDate == null) return "Loan end date is required.";
                   if (loanEndDate!.isBefore(loanStartDate!)) {
                     return "Loan end date cannot be earlier than the start date.";
                   }
@@ -154,22 +161,14 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                 title: Row(
                   children: [
                     id == null
-                        ? const Row(
-                            children: [
-                              Icon(
-                                Icons.add,
-                              ),
-                              Text('Add Expense'),
-                            ],
-                          )
-                        : const Row(
-                            children: [
-                              Icon(
-                                Icons.edit,
-                              ),
-                              Text('Edit Expense'),
-                            ],
-                          ),
+                        ? const Row(children: [
+                            Icon(Icons.add),
+                            Text('Add Expense'),
+                          ])
+                        : const Row(children: [
+                            Icon(Icons.edit),
+                            Text('Edit Expense'),
+                          ]),
                     const Spacer(),
                     if (id != null)
                       IconButton(
@@ -183,60 +182,62 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                 ),
                 content: SizedBox(
                   width: 500,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: expenseNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Name',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: expenseCostController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Cost',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      CheckboxListTile(
-                        title: const Text("Loan"),
-                        value: isLoan,
-                        onChanged: (value) {
-                          setState(() {
-                            isLoan = value!;
-                            if (!isLoan) {
-                              loanStartDate = null;
-                              loanEndDate = null;
-                            }
-                          });
-                        },
-                      ),
-                      if (isLoan) ...[
-                        ListTile(
-                          title: const Text("Loan Start Date"),
-                          subtitle: Text(
-                            loanStartDate != null
-                                ? "${loanStartDate!.toLocal()}".split(' ')[0]
-                                : "Pick a date",
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: expenseNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Name',
+                            border: OutlineInputBorder(),
                           ),
-                          onTap: () => pickDate(context, true),
                         ),
-                        ListTile(
-                          title: const Text("Loan End Date"),
-                          subtitle: Text(
-                            loanEndDate != null
-                                ? "${loanEndDate!.toLocal()}".split(' ')[0]
-                                : "Pick a date",
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: expenseCostController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Cost',
+                            border: OutlineInputBorder(),
                           ),
-                          onTap: () => pickDate(context, false),
                         ),
+                        const SizedBox(height: 10),
+                        CheckboxListTile(
+                          title: const Text("Loan"),
+                          value: isLoan,
+                          onChanged: (value) {
+                            setState(() {
+                              isLoan = value!;
+                              if (!isLoan) {
+                                loanStartDate = null;
+                                loanEndDate = null;
+                              }
+                            });
+                          },
+                        ),
+                        if (isLoan) ...[
+                          ListTile(
+                            title: const Text("Loan Start Date"),
+                            subtitle: Text(
+                              loanStartDate != null
+                                  ? "${loanStartDate!.toLocal()}".split(' ')[0]
+                                  : "Pick a date",
+                            ),
+                            onTap: () => pickDate(context, true),
+                          ),
+                          ListTile(
+                            title: const Text("Loan End Date"),
+                            subtitle: Text(
+                              loanEndDate != null
+                                  ? "${loanEndDate!.toLocal()}".split(' ')[0]
+                                  : "Pick a date",
+                            ),
+                            onTap: () => pickDate(context, false),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 actions: [
@@ -252,19 +253,10 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                         );
                         return;
                       }
-
                       if (id == null) {
                         await addExpense();
                       } else {
-                        await updateExpense(Expense(
-                          id: id,
-                          name: expenseNameController.text,
-                          cost: double.parse(expenseCostController.text),
-                          createdAt: DateTime.now(),
-                          isLoan: isLoan,
-                          loanStartDate: loanStartDate,
-                          loanEndDate: loanEndDate,
-                        ));
+                        await updateExpense(id);
                       }
                       expenseNameController.clear();
                       expenseCostController.clear();
@@ -292,14 +284,13 @@ class _ExpensesSectionState extends State<ExpensesSection> {
         String? loanEndDate, String? loanStartDate, bool isLoan) {
       if (!isLoan) return const SizedBox();
 
-      final endDate = loanEndDate != null ? DateTime.parse(loanEndDate) : null;
+      final endDate = loanEndDate != null ? DateTime.tryParse(loanEndDate) : null;
       final startDate =
-          loanStartDate != null ? DateTime.parse(loanStartDate) : null;
+          loanStartDate != null ? DateTime.tryParse(loanStartDate) : null;
       final today = DateTime.now();
       final timeToExpiry = endDate != null ? endDate.difference(today) : null;
 
       Color dateColor = Colors.black;
-
       if (timeToExpiry != null && timeToExpiry.isNegative) {
         dateColor = Colors.red;
       } else if (timeToExpiry != null && timeToExpiry.inDays <= 60) {
@@ -310,7 +301,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
         children: [
           Text(
             startDate != null ? "Start: ${_formatDate(startDate)}" : "No Date",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
           Text(
             endDate != null ? "End: ${_formatDate(endDate)}" : "No Date",
@@ -359,19 +350,26 @@ class _ExpensesSectionState extends State<ExpensesSection> {
               return ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.attach_money)),
                 title: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(expense['name']),
-                    if (expense['isLoan'] == 1)
-                      const Text("Loan",
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                    Flexible(
+                      child: Text(
+                        expense['name'],
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (expense['isLoan'] == true)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 6),
+                        child: Text("Loan",
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
                   ],
                 ),
                 subtitle: Text("£${expense['cost']}"),
                 trailing: _buildExpenseTrailing(
                   expense['loanEndDate'],
                   expense['loanStartDate'],
-                  expense['isLoan'] == 1,
+                  expense['isLoan'] == true,
                 ),
                 onTap: () => showExpensePopup(context, expense['id']),
               );

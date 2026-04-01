@@ -1,5 +1,4 @@
-import 'package:dun_bun_finance/db_helper.dart';
-import 'package:dun_bun_finance/models/pot.dart';
+import 'package:dun_bun_finance/services/firestore_service.dart';
 import 'package:flutter/material.dart';
 
 class PotsSection extends StatefulWidget {
@@ -19,9 +18,9 @@ class PotsSection extends StatefulWidget {
 }
 
 class _PotsSectionState extends State<PotsSection> {
-  bool isExpanded = true; // State to manage expand/collapse
+  bool isExpanded = true;
 
-  void showPotPopup(BuildContext context, int? id) {
+  void showPotPopup(BuildContext context, String? id) {
     final TextEditingController potNameController = TextEditingController();
     final TextEditingController potPercentageController =
         TextEditingController();
@@ -104,15 +103,10 @@ class _PotsSectionState extends State<PotsSection> {
                 if (id == null) {
                   await addPot(name, percentage);
                 } else {
-                  await updatePot(Pot(
-                    id: id,
-                    name: name,
-                    percentage: percentage,
-                    createdAt: DateTime.now(),
-                  ));
+                  await updatePot(id, name, percentage);
                 }
 
-                Navigator.of(context).pop();
+                if (context.mounted) Navigator.of(context).pop();
               },
               child: Text(id == null ? 'Add' : 'Update'),
             ),
@@ -128,33 +122,37 @@ class _PotsSectionState extends State<PotsSection> {
 
   Future<void> addPot(String name, int percentage) async {
     try {
-      await SQLHelper.createPot(name, percentage);
+      await FirestoreService.createPot(name, percentage);
       widget.onPotUpdated();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error adding pot: $e"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error adding pot: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
-  Future<void> updatePot(Pot pot) async {
+  Future<void> updatePot(String id, String name, int percentage) async {
     try {
-      await SQLHelper.updatePot(pot);
+      await FirestoreService.updatePot(id, {'name': name, 'percentage': percentage});
       widget.onPotUpdated();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error updating pot: $e"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error updating pot: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
-  Future<void> deletePot(int id) async {
+  Future<void> deletePot(String id) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -162,15 +160,17 @@ class _PotsSectionState extends State<PotsSection> {
           backgroundColor: Colors.redAccent,
         ),
       );
-      await SQLHelper.deletePot(id);
+      await FirestoreService.deletePot(id);
       widget.onPotUpdated();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Error deleting pot: $e"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error deleting pot: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 

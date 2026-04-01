@@ -1,4 +1,5 @@
 import 'package:dun_bun_finance/services/auth_service.dart';
+import 'package:dun_bun_finance/services/biometric_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -97,6 +98,37 @@ class _LoginScreenState extends State<LoginScreen> {
         }
         final username =
             user?.displayName ?? user?.email?.split('@')[0] ?? 'User';
+
+        // Offer biometric enrollment if available and not yet enabled
+        final biometricAvailable = await BiometricService.isAvailable();
+        final biometricEnabled = await BiometricService.isEnabled();
+        if (mounted && biometricAvailable && !biometricEnabled) {
+          final enable = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Enable Biometric Login?'),
+              content: const Text(
+                  'Log in faster next time using your fingerprint or face.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Not now'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Enable'),
+                ),
+              ],
+            ),
+          );
+          if (enable == true) {
+            await BiometricService.enable(
+              _emailController.text.trim(),
+              _passwordController.text,
+            );
+          }
+        }
+
         if (mounted) {
           Navigator.of(context)
               .pushReplacementNamed('/home', arguments: username);
@@ -141,35 +173,43 @@ class _LoginScreenState extends State<LoginScreen> {
                     const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 24),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  border: const OutlineInputBorder(),
-                  helperText: _isSignUp
-                      ? 'Min 6 characters, at least 1 uppercase letter'
-                      : null,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off
-                          : Icons.visibility,
+              AutofillGroup(
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      autofillHints: const [AutofillHints.email],
                     ),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                  ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        border: const OutlineInputBorder(),
+                        helperText: _isSignUp
+                            ? 'Min 6 characters, at least 1 uppercase letter'
+                            : null,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () =>
+                              setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                      ),
+                      obscureText: _obscurePassword,
+                      autofillHints: const [AutofillHints.password],
+                      onSubmitted: (_) => _authenticate(),
+                    ),
+                  ],
                 ),
-                obscureText: _obscurePassword,
-                onSubmitted: (_) => _authenticate(),
               ),
               const SizedBox(height: 40),
               _isLoading
