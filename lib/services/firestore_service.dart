@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dun_bun_finance/models/analysis_suggestion.dart';
 import 'package:dun_bun_finance/services/auth_service.dart';
 
 class FirestoreService {
@@ -13,10 +14,12 @@ class FirestoreService {
       _userDoc.collection('expenses');
 
   static Future<void> createExpense(String name, double cost, bool isLoan,
-      String? loanStartDate, String? loanEndDate) async {
+      String? loanStartDate, String? loanEndDate,
+      {String category = 'Other'}) async {
     await _expensesCol.add({
       'name': name,
       'cost': cost,
+      'category': category,
       'isLoan': isLoan,
       'loanStartDate': loanStartDate,
       'loanEndDate': loanEndDate,
@@ -29,6 +32,7 @@ class FirestoreService {
     return snapshot.docs.map((doc) {
       final data = doc.data() as Map<String, dynamic>;
       data['id'] = doc.id;
+      data['category'] ??= 'Other';
       return data;
     }).toList();
   }
@@ -68,6 +72,51 @@ class FirestoreService {
 
   static Future<void> deletePot(String docId) async {
     await _potsCol.doc(docId).delete();
+  }
+
+  // --- APPLY AI SUGGESTIONS ---
+
+  static Future<int> applyAnalysisSuggestions(
+      List<AnalysisSuggestion> suggestions) async {
+    final batch = _firestore.batch();
+    int count = 0;
+
+    for (final s in suggestions) {
+      if (!s.accepted) continue;
+
+      switch (s.type) {
+        case SuggestionType.missing:
+          if (s.suggestedName != null && s.suggestedCost != null) {
+            batch.set(_expensesCol.doc(), {
+              'name': s.suggestedName,
+              'cost': s.suggestedCost,
+              'category': s.suggestedCategory ?? 'Other',
+              'isLoan': s.suggestedIsLoan,
+              'loanStartDate': null,
+              'loanEndDate': null,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+            count++;
+          }
+        case SuggestionType.mismatch:
+          if (s.matchedExpenseId != null && s.suggestedCost != null) {
+            batch.update(_expensesCol.doc(s.matchedExpenseId!), {
+              'cost': s.suggestedCost,
+            });
+            count++;
+          }
+        case SuggestionType.phantom:
+          if (s.matchedExpenseId != null) {
+            batch.delete(_expensesCol.doc(s.matchedExpenseId!));
+            count++;
+          }
+        case SuggestionType.insight:
+          break;
+      }
+    }
+
+    if (count > 0) await batch.commit();
+    return count;
   }
 
   // --- CLEAR ALL ---

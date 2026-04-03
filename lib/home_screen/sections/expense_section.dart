@@ -1,9 +1,10 @@
+import 'package:dun_bun_finance/models/expense.dart';
 import 'package:dun_bun_finance/services/firestore_service.dart';
 import 'package:flutter/material.dart';
 
 class ExpensesSection extends StatefulWidget {
   final List<Map<String, dynamic>> expenses;
-  final VoidCallback onExpenseUpdated;
+  final Future<void> Function() onExpenseUpdated;
 
   const ExpensesSection({
     super.key,
@@ -18,15 +19,31 @@ class ExpensesSection extends StatefulWidget {
 class _ExpensesSectionState extends State<ExpensesSection> {
   bool isExpanded = true;
 
+  void _logError(String source, Object error, StackTrace stackTrace) {
+    debugPrint('[ExpensesSection][$source] $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+
+  void _showSnackBar(String message, {Color? backgroundColor}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextEditingController expenseNameController = TextEditingController();
     final TextEditingController expenseCostController = TextEditingController();
-    bool isLoan = false;
+    var isLoan = false;
+    var selectedCategory = 'Other';
     DateTime? loanStartDate;
     DateTime? loanEndDate;
 
-    Future<void> addExpense() async {
+    Future<bool> addExpense() async {
       try {
         await FirestoreService.createExpense(
           expenseNameController.text,
@@ -34,289 +51,301 @@ class _ExpensesSectionState extends State<ExpensesSection> {
           isLoan,
           loanStartDate?.toIso8601String(),
           loanEndDate?.toIso8601String(),
+          category: selectedCategory,
         );
-        widget.onExpenseUpdated();
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Error adding expense: $e"),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
+        await widget.onExpenseUpdated();
+        return true;
+      } catch (error, stackTrace) {
+        _logError('addExpense', error, stackTrace);
+        _showSnackBar(
+          'Error adding expense: $error',
+          backgroundColor: Colors.redAccent,
+        );
+        return false;
       }
     }
 
-    Future<void> updateExpense(String id) async {
+    Future<bool> updateExpense(String id) async {
       try {
         await FirestoreService.updateExpense(id, {
           'name': expenseNameController.text,
           'cost': double.parse(expenseCostController.text),
+          'category': selectedCategory,
           'isLoan': isLoan,
           'loanStartDate': loanStartDate?.toIso8601String(),
           'loanEndDate': loanEndDate?.toIso8601String(),
         });
-        widget.onExpenseUpdated();
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Error updating expense: $e"),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
-      }
-    }
-
-    Future<void> deleteExpense(String id) async {
-      try {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Expense Deleted"),
-            backgroundColor: Colors.redAccent,
-          ),
+        await widget.onExpenseUpdated();
+        return true;
+      } catch (error, stackTrace) {
+        _logError('updateExpense', error, stackTrace);
+        _showSnackBar(
+          'Error updating expense: $error',
+          backgroundColor: Colors.redAccent,
         );
-        await FirestoreService.deleteExpense(id);
-        widget.onExpenseUpdated();
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Error deleting expense: $e"),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
+        return false;
       }
     }
 
-    void showExpensePopup(BuildContext context, String? id) {
-      if (id != null) {
-        final expense =
-            widget.expenses.firstWhere((element) => element['id'] == id);
-        expenseNameController.text = expense['name'];
-        expenseCostController.text = expense['cost'].toString();
-        isLoan = expense['isLoan'] == true;
-        final rawLoanStartDate = expense['loanStartDate'];
-        final rawLoanEndDate = expense['loanEndDate'];
-
-        loanStartDate =
-            (rawLoanStartDate != null && rawLoanStartDate.isNotEmpty)
-                ? DateTime.tryParse(rawLoanStartDate)
-                : null;
-
-        loanEndDate = (rawLoanEndDate != null && rawLoanEndDate.isNotEmpty)
-            ? DateTime.tryParse(rawLoanEndDate)
-            : null;
+    Future<bool> deleteExpense(String id) async {
+      try {
+        await FirestoreService.deleteExpense(id);
+        await widget.onExpenseUpdated();
+        _showSnackBar(
+          'Expense deleted',
+          backgroundColor: Colors.redAccent,
+        );
+        return true;
+      } catch (error, stackTrace) {
+        _logError('deleteExpense', error, stackTrace);
+        _showSnackBar(
+          'Error deleting expense: $error',
+          backgroundColor: Colors.redAccent,
+        );
+        return false;
       }
+    }
 
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return StatefulBuilder(
-            builder: (context, setState) {
-              Future<void> pickDate(BuildContext context, bool isStart) async {
-                final pickedDate = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2100),
-                );
-                if (pickedDate != null) {
-                  setState(() {
-                    if (isStart) {
-                      loanStartDate = pickedDate;
-                      if (loanEndDate != null &&
-                          loanEndDate!.isBefore(pickedDate)) {
-                        loanEndDate = null;
-                      }
-                    } else {
-                      loanEndDate = pickedDate;
+    void showExpensePopup(BuildContext dialogContext, String? id) {
+      try {
+        if (id != null) {
+          final expense =
+              widget.expenses.firstWhere((element) => element['id'] == id);
+          expenseNameController.text = expense['name'];
+          expenseCostController.text = expense['cost'].toString();
+          selectedCategory = expense['category'] ?? 'Other';
+          isLoan = expense['isLoan'] == true;
+          final rawLoanStartDate = expense['loanStartDate'];
+          final rawLoanEndDate = expense['loanEndDate'];
+
+          loanStartDate =
+              (rawLoanStartDate != null && rawLoanStartDate.isNotEmpty)
+                  ? DateTime.tryParse(rawLoanStartDate)
+                  : null;
+
+          loanEndDate = (rawLoanEndDate != null && rawLoanEndDate.isNotEmpty)
+              ? DateTime.tryParse(rawLoanEndDate)
+              : null;
+        }
+
+        showDialog<void>(
+          context: dialogContext,
+          builder: (BuildContext context) {
+            return StatefulBuilder(
+              builder: (context, setDialogState) {
+                Future<void> pickDate(
+                  BuildContext pickerContext,
+                  bool isStart,
+                ) async {
+                  try {
+                    final pickedDate = await showDatePicker(
+                      context: pickerContext,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (pickedDate != null) {
+                      setDialogState(() {
+                        if (isStart) {
+                          loanStartDate = pickedDate;
+                          if (loanEndDate != null &&
+                              loanEndDate!.isBefore(pickedDate)) {
+                            loanEndDate = null;
+                          }
+                        } else {
+                          loanEndDate = pickedDate;
+                        }
+                      });
                     }
-                  });
-                }
-              }
-
-              String? validateFields() {
-                if (isLoan) {
-                  if (loanStartDate == null) return "Loan start date is required.";
-                  if (loanEndDate == null) return "Loan end date is required.";
-                  if (loanEndDate!.isBefore(loanStartDate!)) {
-                    return "Loan end date cannot be earlier than the start date.";
+                  } catch (error, stackTrace) {
+                    _logError('pickDate', error, stackTrace);
+                    _showSnackBar(
+                      'Error picking date: $error',
+                      backgroundColor: Colors.redAccent,
+                    );
                   }
                 }
-                if (expenseNameController.text.isEmpty) {
-                  return "Expense name cannot be empty.";
-                }
-                if (expenseCostController.text.isEmpty ||
-                    double.tryParse(expenseCostController.text) == null) {
-                  return "Invalid cost value.";
-                }
-                return null;
-              }
 
-              return AlertDialog(
-                title: Row(
-                  children: [
-                    id == null
-                        ? const Row(children: [
-                            Icon(Icons.add),
-                            Text('Add Expense'),
-                          ])
-                        : const Row(children: [
-                            Icon(Icons.edit),
-                            Text('Edit Expense'),
-                          ]),
-                    const Spacer(),
-                    if (id != null)
-                      IconButton(
-                        onPressed: () {
-                          deleteExpense(id);
-                          Navigator.of(context).pop();
-                        },
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                      ),
-                  ],
-                ),
-                content: SizedBox(
-                  width: 500,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextField(
-                          controller: expenseNameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Name',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        TextField(
-                          controller: expenseCostController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Cost',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        CheckboxListTile(
-                          title: const Text("Loan"),
-                          value: isLoan,
-                          onChanged: (value) {
-                            setState(() {
-                              isLoan = value!;
-                              if (!isLoan) {
-                                loanStartDate = null;
-                                loanEndDate = null;
-                              }
-                            });
+                String? validateFields() {
+                  if (isLoan) {
+                    if (loanStartDate == null) {
+                      return 'Contract start date is required.';
+                    }
+                    if (loanEndDate == null) {
+                      return 'Contract end date is required.';
+                    }
+                    if (loanEndDate!.isBefore(loanStartDate!)) {
+                      return 'Contract end date cannot be earlier than the start date.';
+                    }
+                  }
+                  if (expenseNameController.text.isEmpty) {
+                    return 'Expense name cannot be empty.';
+                  }
+                  if (expenseCostController.text.isEmpty ||
+                      double.tryParse(expenseCostController.text) == null) {
+                    return 'Invalid cost value.';
+                  }
+                  return null;
+                }
+
+                return AlertDialog(
+                  title: Row(
+                    children: [
+                      id == null
+                          ? const Row(
+                              children: [
+                                Icon(Icons.add),
+                                Text('Add Expense'),
+                              ],
+                            )
+                          : const Row(
+                              children: [
+                                Icon(Icons.edit),
+                                Text('Edit Expense'),
+                              ],
+                            ),
+                      const Spacer(),
+                      if (id != null)
+                        IconButton(
+                          onPressed: () async {
+                            final wasDeleted = await deleteExpense(id);
+                            if (wasDeleted && context.mounted) {
+                              Navigator.of(context).pop();
+                            }
                           },
+                          icon: const Icon(Icons.delete, color: Colors.red),
                         ),
-                        if (isLoan) ...[
-                          ListTile(
-                            title: const Text("Loan Start Date"),
-                            subtitle: Text(
-                              loanStartDate != null
-                                  ? "${loanStartDate!.toLocal()}".split(' ')[0]
-                                  : "Pick a date",
+                    ],
+                  ),
+                  content: SizedBox(
+                    width: 500,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: expenseNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Name',
+                              border: OutlineInputBorder(),
                             ),
-                            onTap: () => pickDate(context, true),
                           ),
-                          ListTile(
-                            title: const Text("Loan End Date"),
-                            subtitle: Text(
-                              loanEndDate != null
-                                  ? "${loanEndDate!.toLocal()}".split(' ')[0]
-                                  : "Pick a date",
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: expenseCostController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Cost',
+                              border: OutlineInputBorder(),
                             ),
-                            onTap: () => pickDate(context, false),
                           ),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<String>(
+                            initialValue: selectedCategory,
+                            decoration: const InputDecoration(
+                              labelText: 'Category',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: Expense.categories
+                                .map(
+                                  (category) => DropdownMenuItem(
+                                    value: category,
+                                    child: Text(category),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setDialogState(() {
+                                selectedCategory = value ?? 'Other';
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          CheckboxListTile(
+                            title: const Text('Contract'),
+                            value: isLoan,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                isLoan = value ?? false;
+                                if (!isLoan) {
+                                  loanStartDate = null;
+                                  loanEndDate = null;
+                                }
+                              });
+                            },
+                          ),
+                          if (isLoan) ...[
+                            ListTile(
+                              title: const Text('Contract Start Date'),
+                              subtitle: Text(
+                                loanStartDate != null
+                                    ? '${loanStartDate!.toLocal()}'.split(' ')[0]
+                                    : 'Pick a date',
+                              ),
+                              onTap: () => pickDate(context, true),
+                            ),
+                            ListTile(
+                              title: const Text('Contract End Date'),
+                              subtitle: Text(
+                                loanEndDate != null
+                                    ? '${loanEndDate!.toLocal()}'.split(' ')[0]
+                                    : 'Pick a date',
+                              ),
+                              onTap: () => pickDate(context, false),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                actions: [
-                  ElevatedButton(
-                    onPressed: () async {
-                      final validationError = validateFields();
-                      if (validationError != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(validationError),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () async {
+                        final validationError = validateFields();
+                        if (validationError != null) {
+                          _showSnackBar(
+                            validationError,
                             backgroundColor: Colors.redAccent,
-                          ),
-                        );
-                        return;
-                      }
-                      if (id == null) {
-                        await addExpense();
-                      } else {
-                        await updateExpense(id);
-                      }
-                      expenseNameController.clear();
-                      expenseCostController.clear();
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text("Save"),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text("Cancel"),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-    }
+                          );
+                          return;
+                        }
 
-    String _formatDate(DateTime date) {
-      return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
-    }
+                        final wasSaved = id == null
+                            ? await addExpense()
+                            : await updateExpense(id);
 
-    Widget _buildExpenseTrailing(
-        String? loanEndDate, String? loanStartDate, bool isLoan) {
-      if (!isLoan) return const SizedBox();
+                        if (!wasSaved || !context.mounted) return;
 
-      final endDate = loanEndDate != null ? DateTime.tryParse(loanEndDate) : null;
-      final startDate =
-          loanStartDate != null ? DateTime.tryParse(loanStartDate) : null;
-      final today = DateTime.now();
-      final timeToExpiry = endDate != null ? endDate.difference(today) : null;
-
-      Color dateColor = Colors.black;
-      if (timeToExpiry != null && timeToExpiry.isNegative) {
-        dateColor = Colors.red;
-      } else if (timeToExpiry != null && timeToExpiry.inDays <= 60) {
-        dateColor = Colors.orange;
+                        expenseNameController.clear();
+                        expenseCostController.clear();
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Save'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      } catch (error, stackTrace) {
+        _logError('showExpensePopup', error, stackTrace);
+        _showSnackBar(
+          'Error opening expense dialog: $error',
+          backgroundColor: Colors.redAccent,
+        );
       }
-
-      return Column(
-        children: [
-          Text(
-            startDate != null ? "Start: ${_formatDate(startDate)}" : "No Date",
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-          Text(
-            endDate != null ? "End: ${_formatDate(endDate)}" : "No Date",
-            style: TextStyle(
-                color: dateColor, fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-        ],
-      );
     }
 
     return Column(
       children: [
         ListTile(
           title: const Text(
-            "Expenses",
+            'Expenses',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           trailing: Row(
@@ -360,12 +389,36 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                     if (expense['isLoan'] == true)
                       const Padding(
                         padding: EdgeInsets.only(left: 6),
-                        child: Text("Loan",
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: Text(
+                          'Contract',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                   ],
                 ),
-                subtitle: Text("£${expense['cost']}"),
+                subtitle: Row(
+                  children: [
+                    Text('\u00A3${expense['cost']}'),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        expense['category'] ?? 'Other',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.teal.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 trailing: _buildExpenseTrailing(
                   expense['loanEndDate'],
                   expense['loanStartDate'],
@@ -375,6 +428,48 @@ class _ExpensesSectionState extends State<ExpensesSection> {
               );
             },
           ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  Widget _buildExpenseTrailing(
+    String? loanEndDate,
+    String? loanStartDate,
+    bool isLoan,
+  ) {
+    if (!isLoan) return const SizedBox();
+
+    final endDate = loanEndDate != null ? DateTime.tryParse(loanEndDate) : null;
+    final startDate =
+        loanStartDate != null ? DateTime.tryParse(loanStartDate) : null;
+    final today = DateTime.now();
+    final timeToExpiry = endDate != null ? endDate.difference(today) : null;
+
+    var dateColor = Colors.black;
+    if (timeToExpiry != null && timeToExpiry.isNegative) {
+      dateColor = Colors.red;
+    } else if (timeToExpiry != null && timeToExpiry.inDays <= 60) {
+      dateColor = Colors.orange;
+    }
+
+    return Column(
+      children: [
+        Text(
+          startDate != null ? 'Start: ${_formatDate(startDate)}' : 'No Date',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        Text(
+          endDate != null ? 'End: ${_formatDate(endDate)}' : 'No Date',
+          style: TextStyle(
+            color: dateColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
       ],
     );
   }

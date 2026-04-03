@@ -18,17 +18,17 @@ class TotalSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Total Expenses",
+            'Total Expenses',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          Text("£${totalExpenses.toStringAsFixed(2)}"),
+          Text('\u00A3${totalExpenses.toStringAsFixed(2)}'),
           const SizedBox(height: 10),
           const Text(
-            "Income After Expenses",
+            'Income After Expenses',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           Text(
-            "£${incomeAfterExpenses.toStringAsFixed(2)}",
+            '\u00A3${incomeAfterExpenses.toStringAsFixed(2)}',
             style: TextStyle(
               color: incomeAfterExpenses >= 0 ? Colors.green : Colors.red,
             ),

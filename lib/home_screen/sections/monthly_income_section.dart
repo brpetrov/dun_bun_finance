@@ -12,17 +12,23 @@ class MonthlyIncomeInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        decoration: const InputDecoration(
-          labelText: "Enter Monthly Income",
-          border: OutlineInputBorder(),
-          prefixIcon: Icon(Icons.money),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: "Enter Monthly Income",
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.money),
+            ),
+            onSubmitted: (value) => onSubmit(),
+          ),
         ),
-        onSubmitted: (value) => onSubmit(),
       ),
     );
   }
