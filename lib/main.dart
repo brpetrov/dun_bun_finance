@@ -61,10 +61,106 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final darkScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF00BCD4), // cyan accent
+      brightness: Brightness.dark,
+      surface: const Color(0xFF121218),
+      onSurface: const Color(0xFFE2E2E9),
+    );
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        textTheme: GoogleFonts.montserratTextTheme(),
+        useMaterial3: true,
+        colorScheme: darkScheme,
+        scaffoldBackgroundColor: const Color(0xFF121218),
+        textTheme: GoogleFonts.montserratTextTheme(
+          ThemeData(brightness: Brightness.dark).textTheme,
+        ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: const Color(0xFF1A1A24),
+          foregroundColor: darkScheme.onSurface,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+        ),
+        cardTheme: CardThemeData(
+          color: const Color(0xFF1E1E2A),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+          ),
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        ),
+        dividerTheme: DividerThemeData(
+          color: Colors.white.withValues(alpha: 0.06),
+          thickness: 1,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF1E1E2A),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: darkScheme.primary, width: 1.5),
+          ),
+          labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: darkScheme.primary,
+            foregroundColor: darkScheme.onPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: darkScheme.primary,
+          ),
+        ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: const Color(0xFF1E1E2A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+        checkboxTheme: CheckboxThemeData(
+          fillColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return darkScheme.primary;
+            }
+            return Colors.transparent;
+          }),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          backgroundColor: const Color(0xFF2A2A36),
+          contentTextStyle: const TextStyle(color: Colors.white),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+        floatingActionButtonTheme: FloatingActionButtonThemeData(
+          backgroundColor: darkScheme.primary,
+          foregroundColor: darkScheme.onPrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        listTileTheme: const ListTileThemeData(
+          iconColor: Colors.white70,
+        ),
+        iconTheme: const IconThemeData(color: Colors.white70),
       ),
       initialRoute: initialRoute,
       routes: {

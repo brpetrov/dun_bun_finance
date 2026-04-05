@@ -1,38 +1,131 @@
+import 'package:dun_bun_finance/models/expense.dart';
 import 'package:flutter/material.dart';
 
 class TotalSection extends StatelessWidget {
   final double totalExpenses;
   final double incomeAfterExpenses;
+  final Map<String, double> subtotalsByType;
 
   const TotalSection({
     super.key,
     required this.totalExpenses,
     required this.incomeAfterExpenses,
+    this.subtotalsByType = const {},
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Total Expenses',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          // Main totals row
+          Row(
+            children: [
+              Expanded(
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Total Expenses',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '\u00A3${totalExpenses.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.redAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'After Expenses',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '\u00A3${incomeAfterExpenses.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: incomeAfterExpenses > 0
+                                ? Colors.greenAccent
+                                : Colors.redAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          Text('\u00A3${totalExpenses.toStringAsFixed(2)}'),
-          const SizedBox(height: 10),
-          const Text(
-            'Income After Expenses',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          Text(
-            '\u00A3${incomeAfterExpenses.toStringAsFixed(2)}',
-            style: TextStyle(
-              color: incomeAfterExpenses >= 0 ? Colors.green : Colors.red,
+          // Per-type subtotals
+          if (subtotalsByType.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: Expense.typeDisplayOrder.map((type) {
+                final amount = subtotalsByType[type.name] ?? 0.0;
+                if (amount == 0.0) return const SizedBox.shrink();
+                return SizedBox(
+                  width: (MediaQuery.of(context).size.width - 28) / 2,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(type.icon, size: 16, color: type.color),
+                          const SizedBox(width: 6),
+                          Text(
+                            type.label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.6),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '\u00A3${amount.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: type.color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -151,18 +151,12 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dun Bun Finance'),
-        backgroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
-        foregroundColor: Colors.white,
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
         child: ConstrainedBox(
           constraints: BoxConstraints(
             minHeight: MediaQuery.of(context).size.height -
-                MediaQuery.of(context).padding.top -
-                kToolbarHeight,
+                MediaQuery.of(context).padding.top,
           ),
           child: Center(
             child: ConstrainedBox(
@@ -170,12 +164,40 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    _isSignUp ? 'Register' : 'Login',
-                    style: const TextStyle(
-                        fontSize: 28, fontWeight: FontWeight.bold),
+                  // Logo area
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(
+                      Icons.account_balance_wallet_rounded,
+                      size: 40,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Dun Bun Finance',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _isSignUp ? 'Create your account' : 'Welcome back',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(height: 36),
                   AutofillGroup(
                     child: Column(
                       children: [
@@ -183,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: _emailController,
                           decoration: const InputDecoration(
                             labelText: 'Email',
-                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.email_outlined),
                           ),
                           keyboardType: TextInputType.emailAddress,
                           autofillHints: const [AutofillHints.email],
@@ -193,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: _passwordController,
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.lock_outlined),
                             helperText: _isSignUp
                                 ? 'Min 6 characters, at least 1 uppercase letter'
                                 : null,
@@ -214,15 +236,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
                   _isLoading
                       ? const CircularProgressIndicator()
-                      : ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(200, 60),
+                      : SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _authenticate,
+                            child: Text(
+                              _isSignUp ? 'Register' : 'Login',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                          onPressed: _authenticate,
-                          child: Text(_isSignUp ? 'Register' : 'Login'),
                         ),
                   const SizedBox(height: 16),
                   TextButton(

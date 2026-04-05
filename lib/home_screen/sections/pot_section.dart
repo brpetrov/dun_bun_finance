@@ -198,9 +198,19 @@ class _PotsSectionState extends State<PotsSection> {
     return Column(
       children: [
         ListTile(
-          title: const Text(
-            'Pots',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          title: Row(
+            children: [
+              Icon(
+                Icons.savings_outlined,
+                size: 20,
+                color: Colors.greenAccent.withValues(alpha: 0.8),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Pots',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
@@ -224,27 +234,63 @@ class _PotsSectionState extends State<PotsSection> {
           ),
         ),
         if (isExpanded)
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: widget.pots.length,
-            itemBuilder: (context, index) {
-              final pot = widget.pots[index];
-              final percentage = pot['percentage'] as int;
-              final potValue = widget.incomeAfterExpenses * (percentage / 100);
-              return ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.savings)),
-                title: Text(pot['name']),
-                subtitle: Text('$percentage%'),
-                trailing: Text(
-                  '\u00A3${potValue.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                    fontSize: 17,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final useGrid = MediaQuery.of(context).size.width > 900;
+
+              Widget buildPotCard(Map<String, dynamic> pot) {
+                final percentage = pot['percentage'] as int;
+                final potValue =
+                    widget.incomeAfterExpenses * (percentage / 100);
+                return Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.green.withValues(alpha: 0.15),
+                      child: const Icon(Icons.savings, color: Colors.green),
+                    ),
+                    title: Text(pot['name']),
+                    subtitle: Text(
+                      '$percentage%',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    trailing: Text(
+                      '\u00A3${potValue.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.greenAccent,
+                        fontSize: 17,
+                      ),
+                    ),
+                    onTap: () => showPotPopup(context, pot['id']),
                   ),
-                ),
-                onTap: () => showPotPopup(context, pot['id']),
+                );
+              }
+
+              if (useGrid) {
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 5,
+                    crossAxisSpacing: 4,
+                    mainAxisSpacing: 4,
+                  ),
+                  itemCount: widget.pots.length,
+                  itemBuilder: (context, index) {
+                    return buildPotCard(widget.pots[index]);
+                  },
+                );
+              }
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: widget.pots.length,
+                itemBuilder: (context, index) {
+                  return buildPotCard(widget.pots[index]);
+                },
               );
             },
           ),

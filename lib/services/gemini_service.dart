@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:dun_bun_finance/models/statement_transaction.dart';
@@ -14,7 +15,7 @@ class GeminiService {
     }
 
     final model = GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       apiKey: geminiApiKey,
       systemInstruction: Content.text(
         'You are a financial analysis assistant for a personal budgeting app '
@@ -36,7 +37,11 @@ class GeminiService {
             })
         .toList();
 
-    final transactionsJson = transactions.map((t) => t.toJson()).toList();
+    // Limit to last 200 transactions to keep prompt size reasonable
+    final limitedTransactions = transactions.length > 200
+        ? transactions.sublist(transactions.length - 200)
+        : transactions;
+    final transactionsJson = limitedTransactions.map((t) => t.toJson()).toList();
 
     final prompt = '''
 I have a list of recurring expenses tracked in my budgeting app, and a list of transactions from my bank statement (exported from Monzo or similar UK bank). Analyze them and identify discrepancies.
@@ -102,7 +107,12 @@ ${jsonEncode(transactionsJson)}
 }
 ''';
 
-    final response = await model.generateContent([Content.text(prompt)]);
+    final response = await model.generateContent([Content.text(prompt)]).timeout(
+      const Duration(minutes: 5),
+      onTimeout: () => throw Exception(
+        'AI analysis timed out. Please try again.',
+      ),
+    );
     final rawText = response.text ?? '';
 
     return _parseResponse(rawText);

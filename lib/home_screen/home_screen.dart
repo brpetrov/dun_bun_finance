@@ -1,4 +1,5 @@
 import 'package:dun_bun_finance/home_screen/dialogs/analysis_review_dialog.dart';
+import 'package:dun_bun_finance/home_screen/dialogs/data_export_dialog.dart';
 import 'package:dun_bun_finance/home_screen/sections/expense_section.dart';
 import 'package:dun_bun_finance/home_screen/sections/monthly_income_section.dart';
 import 'package:dun_bun_finance/home_screen/sections/pot_section.dart';
@@ -8,6 +9,7 @@ import 'package:dun_bun_finance/services/auth_service.dart';
 import 'package:dun_bun_finance/services/firestore_service.dart';
 import 'package:dun_bun_finance/services/gemini_service.dart';
 import 'package:dun_bun_finance/services/statement_parser_service.dart';
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
@@ -30,6 +32,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   double totalExpenses = 0.0;
   double incomeAfterExpenses = 0.0;
+  Map<String, double> subtotalsByType = {};
+
+  // Analysis state
+  List<AnalysisSuggestion>? _minimizedSuggestions;
+  String? _minimizedSummary;
+  bool _isAnalyzing = false;
+  String _analysisStatus = '';
+  int _analysisElapsed = 0;
+  Timer? _analysisTimer;
 
   @override
   void initState() {
@@ -40,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _monthlyIncomeController.dispose();
+    _analysisTimer?.cancel();
     super.dispose();
   }
 
@@ -60,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initializeData() async {
     try {
+      await FirestoreService.migrateExpenseTypes();
       await _refreshData();
     } catch (error, stackTrace) {
       _logError('_initializeData', error, stackTrace);
@@ -78,22 +91,32 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final fetchedPots = await FirestoreService.getPots();
       final allExpenses = await FirestoreService.getExpenses();
-      final loanItems =
-          allExpenses.where((item) => item['isLoan'] == true).toList();
-      final nonLoanItems =
-          allExpenses.where((item) => item['isLoan'] != true).toList();
-      final orderedExpenses = [...loanItems, ...nonLoanItems];
-      final nextTotalExpenses = _calculateTotalExpensesFor(orderedExpenses);
+      final nextTotalExpenses = _calculateTotalExpensesFor(allExpenses);
       final nextIncomeAfterExpenses =
           _calculateIncomeAfterExpensesFor(nextTotalExpenses);
+
+      // Compute per-type subtotals
+      final nextSubtotals = <String, double>{};
+      for (final type in ['debt', 'bill', 'savings', 'budget']) {
+        nextSubtotals[type] = allExpenses
+            .where((e) => (e['expenseType'] ?? 'bill') == type)
+            .fold(0.0, (acc, e) {
+          final rawCost = e['cost'];
+          return acc +
+              (rawCost is num
+                  ? rawCost.toDouble()
+                  : double.tryParse(rawCost?.toString() ?? '') ?? 0.0);
+        });
+      }
 
       if (!mounted) return;
 
       setState(() {
         pots = fetchedPots;
-        expenses = orderedExpenses;
+        expenses = allExpenses;
         totalExpenses = nextTotalExpenses;
         incomeAfterExpenses = nextIncomeAfterExpenses;
+        subtotalsByType = nextSubtotals;
         isLoading = false;
       });
     } catch (error, stackTrace) {
@@ -168,9 +191,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _analyzeStatement() async {
-    var isLoadingDialogVisible = false;
+  void _startAnalysisTimer() {
+    _analysisElapsed = 0;
+    _analysisTimer?.cancel();
+    _analysisTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _analysisElapsed++);
+    });
+  }
 
+  void _stopAnalysisTimer() {
+    _analysisTimer?.cancel();
+    _analysisTimer = null;
+  }
+
+  Future<void> _analyzeStatement() async {
     try {
       final pickerResult = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -178,10 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
         withData: true,
       );
 
-      if (pickerResult == null || pickerResult.files.isEmpty) {
-        debugPrint('[HomeScreen][_analyzeStatement] File selection cancelled.');
-        return;
-      }
+      if (pickerResult == null || pickerResult.files.isEmpty) return;
 
       final selectedFile = pickerResult.files.single;
       final fileBytes = selectedFile.bytes;
@@ -194,17 +225,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
 
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()),
-      );
-      isLoadingDialogVisible = true;
+      setState(() {
+        _isAnalyzing = true;
+        _analysisStatus = 'Parsing CSV...';
+      });
+      _startAnalysisTimer();
 
       final transactions = await StatementParserService.parseFile(
         fileName: selectedFile.name,
         bytes: fileBytes,
       );
+
+      if (!mounted) return;
+      setState(() => _analysisStatus =
+          'Analyzing ${transactions.length} transactions with AI...');
 
       final currentExpenses = await FirestoreService.getExpenses();
       final (suggestions, summary) = await GeminiService.analyzeStatement(
@@ -212,41 +246,73 @@ class _HomeScreenState extends State<HomeScreen> {
         currentExpenses: currentExpenses,
       );
 
+      _stopAnalysisTimer();
       if (!mounted) return;
+      setState(() => _isAnalyzing = false);
 
-      Navigator.of(context).pop();
-      isLoadingDialogVisible = false;
-
-      final reviewedSuggestions = await showDialog<List<AnalysisSuggestion>>(
-        context: context,
-        builder: (_) => AnalysisReviewDialog(
-          suggestions: suggestions,
-          summary: summary,
-        ),
-      );
-
-      if (reviewedSuggestions == null || !mounted) return;
-
-      final count =
-          await FirestoreService.applyAnalysisSuggestions(reviewedSuggestions);
-      await _refreshData();
-
-      _showSnackBar(
-        'Applied $count changes successfully',
-        backgroundColor: Colors.green,
-      );
+      await _showAnalysisReview(suggestions, summary);
     } catch (error, stackTrace) {
+      _stopAnalysisTimer();
       _logError('_analyzeStatement', error, stackTrace);
 
-      if (mounted && isLoadingDialogVisible) {
-        Navigator.of(context).pop();
+      if (mounted) {
+        setState(() => _isAnalyzing = false);
+        _showSnackBar(
+          'Analysis failed: $error',
+          backgroundColor: Colors.redAccent,
+        );
       }
-
-      _showSnackBar(
-        'Analysis failed: $error',
-        backgroundColor: Colors.redAccent,
-      );
     }
+  }
+
+  Future<void> _showAnalysisReview(
+    List<AnalysisSuggestion> suggestions,
+    String summary,
+  ) async {
+    final result = await showDialog(
+      context: context,
+      builder: (_) => AnalysisReviewDialog(
+        suggestions: suggestions,
+        summary: summary,
+      ),
+    );
+
+    if (!mounted) return;
+
+    // User tapped minimize — store results and show FAB
+    if (result == 'minimize') {
+      setState(() {
+        _minimizedSuggestions = suggestions;
+        _minimizedSummary = summary;
+      });
+      _showSnackBar('Analysis minimized — tap the button to reopen');
+      return;
+    }
+
+    // User cancelled
+    if (result == null) {
+      setState(() {
+        _minimizedSuggestions = null;
+        _minimizedSummary = null;
+      });
+      return;
+    }
+
+    // User applied suggestions
+    final reviewedSuggestions = result as List<AnalysisSuggestion>;
+    final count =
+        await FirestoreService.applyAnalysisSuggestions(reviewedSuggestions);
+    await _refreshData();
+
+    setState(() {
+      _minimizedSuggestions = null;
+      _minimizedSummary = null;
+    });
+
+    _showSnackBar(
+      'Applied $count changes successfully',
+      backgroundColor: Colors.green,
+    );
   }
 
   Future<void> _handleRefresh() async {
@@ -276,13 +342,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _showDataExportDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => DataExportDialog(
+        expenses: expenses,
+        pots: pots,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Hello, ${widget.username}'),
-        backgroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.auto_awesome),
@@ -294,43 +368,112 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _handleRefresh,
           ),
           IconButton(
+            icon: const Icon(Icons.data_object),
+            tooltip: 'View current expenses and pots',
+            onPressed: _showDataExportDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _handleLogout,
           ),
         ],
       ),
+      floatingActionButton: _minimizedSuggestions != null
+          ? FloatingActionButton.extended(
+              onPressed: () => _showAnalysisReview(
+                _minimizedSuggestions!,
+                _minimizedSummary!,
+              ),
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Review Analysis'),
+            )
+          : null,
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(10.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      MonthlyIncomeInput(
-                        controller: _monthlyIncomeController,
-                        onSubmit: calculateIncomeAfterExpenses,
+            : Column(
+                children: [
+                  if (_isAnalyzing)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.12),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.3),
+                          ),
+                        ),
                       ),
-                      const Divider(),
-                      ExpensesSection(
-                        expenses: expenses,
-                        onExpenseUpdated: _refreshData,
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _analysisStatus,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                          Text(
+                            '${_analysisElapsed}s',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                      const Divider(),
-                      TotalSection(
-                        totalExpenses: totalExpenses,
-                        incomeAfterExpenses: incomeAfterExpenses,
+                    ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(10.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            MonthlyIncomeInput(
+                              controller: _monthlyIncomeController,
+                              onSubmit: calculateIncomeAfterExpenses,
+                            ),
+                            const Divider(),
+                            ExpensesSection(
+                              expenses: expenses,
+                              onExpenseUpdated: _refreshData,
+                            ),
+                            const Divider(),
+                            TotalSection(
+                              totalExpenses: totalExpenses,
+                              incomeAfterExpenses: incomeAfterExpenses,
+                              subtotalsByType: subtotalsByType,
+                            ),
+                            const Divider(),
+                            PotsSection(
+                              pots: pots,
+                              onPotUpdated: _refreshData,
+                              incomeAfterExpenses: incomeAfterExpenses,
+                            ),
+                          ],
+                        ),
                       ),
-                      const Divider(),
-                      PotsSection(
-                        pots: pots,
-                        onPotUpdated: _refreshData,
-                        incomeAfterExpenses: incomeAfterExpenses,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
       ),
     );

@@ -215,10 +215,7 @@ class StatementParserService {
   }
 
   static DateTime? _parseDate(String raw) {
-    var date = DateTime.tryParse(raw);
-    if (date != null) return date;
-
-    // UK format DD/MM/YYYY
+    // Try UK format DD/MM/YYYY first (most common in bank exports)
     final parts = raw.split(RegExp(r'[/\-.]'));
     if (parts.length == 3) {
       final day = int.tryParse(parts[0]);
@@ -226,11 +223,19 @@ class StatementParserService {
       final year = int.tryParse(parts[2]);
       if (day != null && month != null && year != null) {
         final fullYear = year < 100 ? 2000 + year : year;
-        return DateTime.tryParse(
-          '$fullYear-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}',
-        );
+        try {
+          return DateTime(fullYear, month, day);
+        } catch (_) {
+          return null;
+        }
       }
     }
-    return null;
+
+    // Fallback to ISO format (2024-01-15)
+    try {
+      return DateTime.parse(raw);
+    } catch (_) {
+      return null;
+    }
   }
 }

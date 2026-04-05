@@ -15,15 +15,20 @@ class FirestoreService {
 
   static Future<void> createExpense(String name, double cost, bool isLoan,
       String? loanStartDate, String? loanEndDate,
-      {String category = 'Other'}) async {
+      {String category = 'Other',
+      String expenseType = 'bill',
+      bool isVariable = false}) async {
     await _expensesCol.add({
       'name': name,
       'cost': cost,
       'category': category,
+      'expenseType': expenseType,
+      'isVariable': isVariable,
       'isLoan': isLoan,
       'loanStartDate': loanStartDate,
       'loanEndDate': loanEndDate,
       'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -33,16 +38,86 @@ class FirestoreService {
       final data = doc.data() as Map<String, dynamic>;
       data['id'] = doc.id;
       data['category'] ??= 'Other';
+      data['expenseType'] ??= 'bill';
+      data['isVariable'] ??= false;
+
+      // Normalize updatedAt to ISO string
+      final rawUpdatedAt = data['updatedAt'];
+      if (rawUpdatedAt is Timestamp) {
+        data['updatedAt'] = rawUpdatedAt.toDate().toIso8601String();
+      } else if (rawUpdatedAt == null) {
+        final rawCreatedAt = data['createdAt'];
+        if (rawCreatedAt is Timestamp) {
+          data['updatedAt'] = rawCreatedAt.toDate().toIso8601String();
+        }
+      }
+
       return data;
     }).toList();
   }
 
-  static Future<void> updateExpense(String docId, Map<String, dynamic> data) async {
+  static Future<void> updateExpense(
+      String docId, Map<String, dynamic> data) async {
     await _expensesCol.doc(docId).update(data);
   }
 
   static Future<void> deleteExpense(String docId) async {
     await _expensesCol.doc(docId).delete();
+  }
+
+  // --- MIGRATION ---
+
+  static String _classifyExpenseType(Map<String, dynamic> data) {
+    if (data['isLoan'] == true) return 'debt';
+
+    final name = (data['name'] ?? '').toString().toLowerCase();
+    final category = (data['category'] ?? 'Other').toString();
+
+    // Savings-like items
+    if (name.contains('investment') ||
+        name.contains('emergency fund') ||
+        name.contains('saving')) {
+      return 'savings';
+    }
+
+    // Budget-like items
+    if (category == 'Food & Groceries' ||
+        category == 'Entertainment' ||
+        category == 'Health & Fitness') {
+      return 'budget';
+    }
+
+    // Name-based budget detection
+    if (name.contains('food') ||
+        name.contains('fuel') ||
+        name.contains('cat monthly')) {
+      return 'budget';
+    }
+
+    // Everything else is a bill
+    return 'bill';
+  }
+
+  static Future<int> migrateExpenseTypes() async {
+    final snapshot = await _expensesCol.get();
+    final batch = _firestore.batch();
+    int count = 0;
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      if (data['expenseType'] != null) continue;
+
+      final expenseType = _classifyExpenseType(data);
+      batch.update(doc.reference, {
+        'expenseType': expenseType,
+        'isVariable': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      count++;
+    }
+
+    if (count > 0) await batch.commit();
+    return count;
   }
 
   // --- POTS ---
@@ -66,7 +141,8 @@ class FirestoreService {
     }).toList();
   }
 
-  static Future<void> updatePot(String docId, Map<String, dynamic> data) async {
+  static Future<void> updatePot(
+      String docId, Map<String, dynamic> data) async {
     await _potsCol.doc(docId).update(data);
   }
 
@@ -91,10 +167,13 @@ class FirestoreService {
               'name': s.suggestedName,
               'cost': s.suggestedCost,
               'category': s.suggestedCategory ?? 'Other',
+              'expenseType': 'bill',
+              'isVariable': false,
               'isLoan': s.suggestedIsLoan,
               'loanStartDate': null,
               'loanEndDate': null,
               'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
             });
             count++;
           }
@@ -102,6 +181,7 @@ class FirestoreService {
           if (s.matchedExpenseId != null && s.suggestedCost != null) {
             batch.update(_expensesCol.doc(s.matchedExpenseId!), {
               'cost': s.suggestedCost,
+              'updatedAt': FieldValue.serverTimestamp(),
             });
             count++;
           }

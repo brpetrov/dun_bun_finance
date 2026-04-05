@@ -45,6 +45,11 @@ class _AnalysisReviewDialogState extends State<AnalysisReviewDialog> {
             automaticallyImplyLeading: false,
             actions: [
               IconButton(
+                icon: const Icon(Icons.minimize),
+                tooltip: 'Minimize — review your expenses first',
+                onPressed: () => Navigator.of(context).pop('minimize'),
+              ),
+              IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.of(context).pop(null),
               ),
@@ -60,8 +65,17 @@ class _AnalysisReviewDialogState extends State<AnalysisReviewDialog> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Text(
                     widget.summary,
@@ -99,27 +113,52 @@ class _AnalysisReviewDialogState extends State<AnalysisReviewDialog> {
 
                 if (insights.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  const Text(
-                    'Insights',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.lightbulb_outline,
+                            size: 18, color: Colors.amber),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Insights',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 10),
                   ...insights.map((s) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.lightbulb_outline,
-                                size: 18, color: Colors.amber.shade700),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(s.description,
-                                  style: const TextStyle(fontSize: 13)),
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.arrow_right,
+                                    size: 18,
+                                    color:
+                                        Colors.white.withValues(alpha: 0.4)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(s.description,
+                                      style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.white
+                                              .withValues(alpha: 0.7))),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       )),
                 ],
@@ -164,89 +203,131 @@ class _AnalysisReviewDialogState extends State<AnalysisReviewDialog> {
     IconData icon,
     List<AnalysisSuggestion> items,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 6),
-            Text(
-              '$title (${items.length})',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: color,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 18),
               ),
-            ),
-          ],
-        ),
-        Text(subtitle,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-        const SizedBox(height: 4),
-        ...items.map((s) => CheckboxListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              value: s.accepted,
-              onChanged: (val) => setState(() => s.accepted = val ?? false),
-              title: Text(
-                s.suggestedName ?? s.description,
-                style: const TextStyle(fontSize: 14),
-              ),
-              subtitle: Column(
+              const SizedBox(width: 10),
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(s.description, style: const TextStyle(fontSize: 12)),
-                  Row(
-                    children: [
-                      if (s.suggestedCost != null)
-                        Text('£${s.suggestedCost!.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 12)),
-                      if (s.suggestedCategory != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(s.suggestedCategory!,
-                              style: TextStyle(
-                                  fontSize: 10, color: Colors.teal.shade700)),
-                        ),
-                      ],
-                      const Spacer(),
-                      _confidenceBadge(s.confidence),
-                    ],
+                  Text(
+                    '$title (${items.length})',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
                   ),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.4))),
                 ],
               ),
-            )),
-        const SizedBox(height: 12),
-      ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...items.map((s) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Card(
+                  child: CheckboxListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    value: s.accepted,
+                    onChanged: (val) =>
+                        setState(() => s.accepted = val ?? false),
+                    title: Text(
+                      s.suggestedName ?? s.description,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(s.description,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      Colors.white.withValues(alpha: 0.5))),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              if (s.suggestedCost != null)
+                                Text('£${s.suggestedCost!.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary)),
+                              if (s.suggestedCategory != null) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(s.suggestedCategory!,
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary)),
+                                ),
+                              ],
+                              const Spacer(),
+                              _confidenceBadge(s.confidence),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )),
+        ],
+      ),
     );
   }
 
   Widget _confidenceBadge(String confidence) {
-    final Color bgColor;
+    final Color color;
     switch (confidence) {
       case 'high':
-        bgColor = Colors.green.shade100;
+        color = Colors.greenAccent;
       case 'medium':
-        bgColor = Colors.orange.shade100;
+        color = Colors.orangeAccent;
       default:
-        bgColor = Colors.grey.shade200;
+        color = Colors.grey;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(confidence,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+          style: TextStyle(
+              fontSize: 10, fontWeight: FontWeight.bold, color: color)),
     );
   }
 }

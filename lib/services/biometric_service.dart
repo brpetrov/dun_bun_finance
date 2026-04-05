@@ -21,8 +21,12 @@ class BiometricService {
   }
 
   static Future<bool> isEnabled() async {
-    final val = await _storage.read(key: _keyEnabled);
-    return val == 'true';
+    try {
+      final val = await _storage.read(key: _keyEnabled);
+      return val == 'true';
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<void> enable(String email, String password) async {
