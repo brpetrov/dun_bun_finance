@@ -26,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> pots = [];
   List<Map<String, dynamic>> expenses = [];
   bool isLoading = true;
+  String _userRole = 'user';
 
   final TextEditingController _monthlyIncomeController =
       TextEditingController();
@@ -73,6 +74,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _initializeData() async {
     try {
       await FirestoreService.migrateExpenseTypes();
+      final role = await FirestoreService.getUserRole();
+      if (mounted) setState(() => _userRole = role);
       await _refreshData();
     } catch (error, stackTrace) {
       _logError('_initializeData', error, stackTrace);
@@ -356,25 +359,89 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hello, ${widget.username}'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Hello, ${widget.username}'),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: _userRole == 'admin'
+                    ? Colors.amber.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _userRole == 'admin'
+                      ? Colors.amber.withValues(alpha: 0.6)
+                      : Colors.white.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Text(
+                _userRole == 'admin' ? 'Admin' : 'User',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: _userRole == 'admin'
+                      ? Colors.amber
+                      : Colors.white.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome),
-            tooltip: 'Analyze Bank Statement',
-            onPressed: _analyzeStatement,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _handleRefresh,
-          ),
-          IconButton(
-            icon: const Icon(Icons.data_object),
-            tooltip: 'View current expenses and pots',
-            onPressed: _showDataExportDialog,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _handleLogout,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              switch (value) {
+                case 'analyze':
+                  _analyzeStatement();
+                case 'refresh':
+                  _handleRefresh();
+                case 'export':
+                  _showDataExportDialog();
+                case 'logout':
+                  _handleLogout();
+              }
+            },
+            itemBuilder: (context) => [
+              if (_userRole == 'admin') ...[
+                const PopupMenuItem(
+                  value: 'analyze',
+                  child: ListTile(
+                    leading: Icon(Icons.auto_awesome),
+                    title: Text('Analyze Statement'),
+                    dense: true,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'export',
+                  child: ListTile(
+                    leading: Icon(Icons.data_object),
+                    title: Text('Export Data'),
+                    dense: true,
+                  ),
+                ),
+                const PopupMenuDivider(),
+              ],
+              const PopupMenuItem(
+                value: 'refresh',
+                child: ListTile(
+                  leading: Icon(Icons.refresh),
+                  title: Text('Refresh'),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: ListTile(
+                  leading: Icon(Icons.logout),
+                  title: Text('Logout'),
+                  dense: true,
+                ),
+              ),
+            ],
           ),
         ],
       ),

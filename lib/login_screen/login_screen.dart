@@ -1,5 +1,6 @@
 import 'package:dun_bun_finance/services/auth_service.dart';
 import 'package:dun_bun_finance/services/biometric_service.dart';
+import 'package:dun_bun_finance/services/firestore_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -52,9 +53,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_isSignUp) {
         await AuthService.signUp(
             _emailController.text.trim(), _passwordController.text);
-        await AuthService.currentUser?.updateDisplayName(
-          _emailController.text.split('@')[0],
-        );
+        final displayName = _emailController.text.split('@')[0];
+        await AuthService.currentUser?.updateDisplayName(displayName);
+        await FirestoreService.createUserProfile(displayName);
         await AuthService.currentUser?.sendEmailVerification();
         await AuthService.signOut();
         if (mounted) {

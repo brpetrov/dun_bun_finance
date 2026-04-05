@@ -86,6 +86,7 @@ class _PotsSectionState extends State<PotsSection> {
                     decoration: const InputDecoration(
                       labelText: 'Percentage',
                       border: OutlineInputBorder(),
+                      suffixText: '%',
                     ),
                   ),
                 ],
@@ -106,7 +107,9 @@ class _PotsSectionState extends State<PotsSection> {
                   }
 
                   final percentage = int.tryParse(percentageText);
-                  if (percentage == null || percentage < 0 || percentage > 100) {
+                  if (percentage == null ||
+                      percentage < 0 ||
+                      percentage > 100) {
                     _showSnackBar(
                       'Percentage must be between 0 and 100',
                       backgroundColor: Colors.redAccent,
@@ -274,7 +277,7 @@ class _PotsSectionState extends State<PotsSection> {
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 5,
+                    mainAxisExtent: 72,
                     crossAxisSpacing: 4,
                     mainAxisSpacing: 4,
                   ),

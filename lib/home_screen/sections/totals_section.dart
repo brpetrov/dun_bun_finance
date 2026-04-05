@@ -30,7 +30,7 @@ class TotalSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Total Expenses',
+                          'Total Ammount',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.white.withValues(alpha: 0.5),
@@ -86,15 +86,16 @@ class TotalSection extends StatelessWidget {
           // Per-type subtotals
           if (subtotalsByType.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: Expense.typeDisplayOrder.map((type) {
-                final amount = subtotalsByType[type.name] ?? 0.0;
-                if (amount == 0.0) return const SizedBox.shrink();
-                return SizedBox(
-                  width: (MediaQuery.of(context).size.width - 28) / 2,
-                  child: Card(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final useGrid = constraints.maxWidth >= 500;
+                final visibleTypes = Expense.typeDisplayOrder
+                    .where((t) => (subtotalsByType[t.name] ?? 0.0) > 0.0)
+                    .toList();
+
+                Widget buildTypeCard(ExpenseType type) {
+                  final amount = subtotalsByType[type.name] ?? 0.0;
+                  return Card(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
@@ -121,9 +122,32 @@ class TotalSection extends StatelessWidget {
                         ],
                       ),
                     ),
-                  ),
+                  );
+                }
+
+                if (useGrid) {
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisExtent: 52,
+                      crossAxisSpacing: 4,
+                      mainAxisSpacing: 4,
+                    ),
+                    itemCount: visibleTypes.length,
+                    itemBuilder: (_, i) => buildTypeCard(visibleTypes[i]),
+                  );
+                }
+
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: visibleTypes.length,
+                  itemBuilder: (_, i) => buildTypeCard(visibleTypes[i]),
                 );
-              }).toList(),
+              },
             ),
           ],
         ],

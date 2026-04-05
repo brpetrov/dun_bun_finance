@@ -199,6 +199,31 @@ class FirestoreService {
     return count;
   }
 
+  // --- USER PROFILE ---
+
+  static Future<Map<String, dynamic>?> getUserProfile() async {
+    final doc = await _userDoc.get();
+    if (!doc.exists) return null;
+    return doc.data() as Map<String, dynamic>?;
+  }
+
+  static Future<void> createUserProfile(String displayName) async {
+    await _userDoc.set({
+      'displayName': displayName,
+      'role': 'user',
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<String> getUserRole() async {
+    final profile = await getUserProfile();
+    final role = (profile?['role'] as String?) ?? 'user';
+    if (profile == null || profile['role'] == null) {
+      await _userDoc.set({'role': role}, SetOptions(merge: true));
+    }
+    return role;
+  }
+
   // --- CLEAR ALL ---
 
   static Future<void> clearAll() async {

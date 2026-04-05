@@ -139,8 +139,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
           expenseNameController.text = expense['name'];
           expenseCostController.text = expense['cost'].toString();
           selectedCategory = expense['category'] ?? 'Other';
-          selectedExpenseType =
-              ExpenseType.fromString(expense['expenseType']);
+          selectedExpenseType = ExpenseType.fromString(expense['expenseType']);
           isVariable = expense['isVariable'] == true;
           isLoan = expense['isLoan'] == true;
           final rawLoanStartDate = expense['loanStartDate'];
@@ -274,6 +273,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                             decoration: const InputDecoration(
                               labelText: 'Cost',
                               border: OutlineInputBorder(),
+                              prefixText: '£',
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -306,33 +306,71 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                               contentPadding: EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 8),
                             ),
-                            child: SegmentedButton<ExpenseType>(
-                              segments: Expense.typeDisplayOrder
-                                  .map((type) => ButtonSegment<ExpenseType>(
-                                        value: type,
-                                        label: Text(type.label,
-                                            style:
-                                                const TextStyle(fontSize: 12)),
-                                        icon: Icon(type.icon, size: 16),
-                                      ))
-                                  .toList(),
-                              selected: {selectedExpenseType},
-                              onSelectionChanged: (selected) {
-                                setDialogState(() {
-                                  selectedExpenseType = selected.first;
-                                  if (selectedExpenseType != ExpenseType.debt) {
-                                    isLoan = false;
-                                    loanStartDate = null;
-                                    loanEndDate = null;
-                                  }
-                                });
-                              },
-                              showSelectedIcon: false,
-                              style: const ButtonStyle(
-                                visualDensity: VisualDensity.compact,
-                                tapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                              ),
+                            child: GridView.count(
+                              crossAxisCount: 2,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              childAspectRatio: 3.5,
+                              crossAxisSpacing: 6,
+                              mainAxisSpacing: 6,
+                              children: Expense.typeDisplayOrder.map((type) {
+                                final isSelected = selectedExpenseType == type;
+                                return GestureDetector(
+                                  onTap: () {
+                                    setDialogState(() {
+                                      selectedExpenseType = type;
+                                      if (selectedExpenseType !=
+                                          ExpenseType.debt) {
+                                        isLoan = false;
+                                        loanStartDate = null;
+                                        loanEndDate = null;
+                                      }
+                                    });
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? type.color.withValues(alpha: 0.18)
+                                          : Colors.transparent,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? type.color
+                                            : Colors.white
+                                                .withValues(alpha: 0.15),
+                                        width: isSelected ? 1.5 : 1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(type.icon,
+                                            size: 16,
+                                            color: isSelected
+                                                ? type.color
+                                                : Colors.white
+                                                    .withValues(alpha: 0.5)),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          type.label,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            color: isSelected
+                                                ? type.color
+                                                : Colors.white
+                                                    .withValues(alpha: 0.5),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -436,9 +474,8 @@ class _ExpensesSectionState extends State<ExpensesSection> {
     }
 
     // Group expenses by type
-    final variableNeedingUpdate = widget.expenses
-        .where((e) => _needsMonthlyUpdate(e))
-        .toList();
+    final variableNeedingUpdate =
+        widget.expenses.where((e) => _needsMonthlyUpdate(e)).toList();
 
     final groupedExpenses = <ExpenseType, List<Map<String, dynamic>>>{};
     for (final type in Expense.typeDisplayOrder) {
@@ -460,7 +497,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 5,
+                mainAxisExtent: 72,
                 crossAxisSpacing: 4,
                 mainAxisSpacing: 4,
               ),
@@ -662,8 +699,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                 ],
               ),
             ),
-            buildResponsiveList(
-                variableNeedingUpdate, buildVariableUpdateCard),
+            buildResponsiveList(variableNeedingUpdate, buildVariableUpdateCard),
             const Divider(height: 16),
           ],
           // Grouped type sections
@@ -760,7 +796,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
     final daysLeft = endDate.difference(DateTime.now()).inDays;
     if (daysLeft < 0) return Colors.red;
     if (daysLeft <= 60) return Colors.orange;
-    return Colors.black;
+    return Colors.grey;
   }
 
   Widget _buildExpenseTrailing(
