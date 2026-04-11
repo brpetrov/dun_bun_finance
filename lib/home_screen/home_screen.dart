@@ -103,8 +103,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _refreshData() async {
-    if (mounted) {
+  Future<void> _refreshData({bool silent = false}) async {
+    if (!silent && mounted) {
       setState(() => isLoading = true);
     }
 
@@ -348,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final reviewedSuggestions = result as List<AnalysisSuggestion>;
     final count =
         await FirestoreService.applyAnalysisSuggestions(reviewedSuggestions);
-    await _refreshData();
+    await _refreshData(silent: true);
 
     setState(() {
       _minimizedSuggestions = null;
@@ -678,9 +678,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _markReviewed(Map<String, dynamic> expense) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Review'),
+        content: Text('Mark "${expense['name']}" as reviewed?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Yes, Reviewed'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
     try {
       await FirestoreService.markExpenseReviewed(expense['id'] as String);
-      await _refreshData();
+      await _refreshData(silent: true);
       _showSnackBar('${expense['name']} marked as reviewed');
     } catch (error, stackTrace) {
       _logError('_markReviewed', error, stackTrace);
@@ -1098,7 +1117,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             const Divider(),
                             ExpensesSection(
                               expenses: expenses,
-                              onExpenseUpdated: _refreshData,
+                              onExpenseUpdated: () =>
+                                  _refreshData(silent: true),
                             ),
                             const Divider(),
                             TotalSection(
@@ -1110,7 +1130,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             const Divider(),
                             PotsSection(
                               pots: pots,
-                              onPotUpdated: _refreshData,
+                              onPotUpdated: () =>
+                                  _refreshData(silent: true),
                               incomeAfterExpenses: incomeAfterExpenses,
                             ),
                           ],

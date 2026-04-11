@@ -81,6 +81,120 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     }
   }
 
+  Future<void> _editItem(MaintenanceItem item) async {
+    final nameController = TextEditingController(text: item.name);
+    final descController = TextEditingController(text: item.description);
+    int frequencyMonths = item.frequencyMonths;
+    MaintenanceCategory category = item.category;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('Edit Reminder'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<MaintenanceCategory>(
+                    initialValue: category,
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: MaintenanceCategory.values
+                        .map((c) => DropdownMenuItem(
+                              value: c,
+                              child: Row(
+                                children: [
+                                  Icon(c.icon, size: 18, color: c.color),
+                                  const SizedBox(width: 8),
+                                  Text(c.label),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => category = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    initialValue: _frequencyOptions.contains(frequencyMonths)
+                        ? frequencyMonths
+                        : 12,
+                    decoration: const InputDecoration(
+                      labelText: 'Frequency',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: _frequencyOptions
+                        .map((m) => DropdownMenuItem(
+                              value: m,
+                              child: Text(_frequencyLabel(m)),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => frequencyMonths = val);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (saved == true) {
+      final name = nameController.text.trim();
+      if (name.isEmpty) return;
+      await FirestoreService.updateMaintenanceItem(item.id, {
+        'name': name,
+        'description': descController.text.trim(),
+        'category': category.name,
+        'frequencyMonths': frequencyMonths,
+      });
+      await _loadItems();
+    }
+
+    nameController.dispose();
+    descController.dispose();
+  }
+
+  static const _frequencyOptions = [1, 3, 6, 12, 18, 24, 60, 120];
+
   Future<void> _deleteItem(MaintenanceItem item) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -419,6 +533,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
                   switch (value) {
                     case 'done':
                       _markDone(item);
+                    case 'edit':
+                      _editItem(item);
                     case 'date':
                       _editDueDate(item);
                     case 'delete':
@@ -431,6 +547,14 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
                     child: ListTile(
                       leading: Icon(Icons.check_circle, color: Colors.green),
                       title: Text('Mark as Done'),
+                      dense: true,
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: ListTile(
+                      leading: Icon(Icons.edit_outlined),
+                      title: Text('Edit'),
                       dense: true,
                     ),
                   ),
@@ -584,6 +708,17 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
             // Actions
             Row(
               children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _editItem(item);
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Edit'),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () {
