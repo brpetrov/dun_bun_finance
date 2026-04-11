@@ -23,5 +23,17 @@ class AuthService {
     await _auth.signOut();
   }
 
+  /// Re-authenticates then permanently deletes the Firebase Auth account.
+  static Future<void> deleteAccount(String password) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) throw Exception('No signed-in user');
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: password,
+    );
+    await user.reauthenticateWithCredential(credential);
+    await user.delete();
+  }
+
   static Stream<User?> get authStateChanges => _auth.authStateChanges();
 }

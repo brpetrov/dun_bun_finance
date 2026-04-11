@@ -17,13 +17,15 @@ class FirestoreService {
       String? loanStartDate, String? loanEndDate,
       {String category = 'Other',
       String expenseType = 'bill',
-      bool isVariable = false}) async {
+      bool isVariable = false,
+      double? interestRate}) async {
     await _expensesCol.add({
       'name': name,
       'cost': cost,
       'category': category,
       'expenseType': expenseType,
       'isVariable': isVariable,
+      'interestRate': interestRate,
       'isLoan': isLoan,
       'loanStartDate': loanStartDate,
       'loanEndDate': loanEndDate,
@@ -41,15 +43,16 @@ class FirestoreService {
       data['expenseType'] ??= 'bill';
       data['isVariable'] ??= false;
 
-      // Normalize updatedAt to ISO string
+      // Normalize Timestamps to ISO strings
+      final rawCreatedAt = data['createdAt'];
+      if (rawCreatedAt is Timestamp) {
+        data['createdAt'] = rawCreatedAt.toDate().toIso8601String();
+      }
       final rawUpdatedAt = data['updatedAt'];
       if (rawUpdatedAt is Timestamp) {
         data['updatedAt'] = rawUpdatedAt.toDate().toIso8601String();
       } else if (rawUpdatedAt == null) {
-        final rawCreatedAt = data['createdAt'];
-        if (rawCreatedAt is Timestamp) {
-          data['updatedAt'] = rawCreatedAt.toDate().toIso8601String();
-        }
+        data['updatedAt'] = data['createdAt'];
       }
 
       return data;
@@ -59,6 +62,13 @@ class FirestoreService {
   static Future<void> updateExpense(
       String docId, Map<String, dynamic> data) async {
     await _expensesCol.doc(docId).update(data);
+  }
+
+  static Future<void> markExpenseReviewed(String docId) async {
+    await _expensesCol.doc(docId).update({
+      'lastNegotiatedAt': DateTime.now().toIso8601String(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   static Future<void> deleteExpense(String docId) async {
@@ -235,5 +245,20 @@ class FirestoreService {
     for (final doc in pots.docs) {
       await doc.reference.delete();
     }
+  }
+
+  // --- DELETE ACCOUNT DATA ---
+
+  /// Deletes all subcollections and the user profile document.
+  static Future<void> deleteUserData() async {
+    final expensesDocs = await _expensesCol.get();
+    for (final doc in expensesDocs.docs) {
+      await doc.reference.delete();
+    }
+    final potsDocs = await _potsCol.get();
+    for (final doc in potsDocs.docs) {
+      await doc.reference.delete();
+    }
+    await _userDoc.delete();
   }
 }

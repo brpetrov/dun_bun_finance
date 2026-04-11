@@ -5,12 +5,14 @@ class TotalSection extends StatelessWidget {
   final double totalExpenses;
   final double incomeAfterExpenses;
   final Map<String, double> subtotalsByType;
+  final double subscriptionsTotal;
 
   const TotalSection({
     super.key,
     required this.totalExpenses,
     required this.incomeAfterExpenses,
     this.subtotalsByType = const {},
+    this.subscriptionsTotal = 0.0,
   });
 
   @override
@@ -83,6 +85,38 @@ class TotalSection extends StatelessWidget {
               ),
             ],
           ),
+            if (subscriptionsTotal > 0) ...[
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.subscriptions_outlined,
+                        size: 16, color: Colors.purpleAccent),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Subscriptions',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '\u00A3${subscriptionsTotal.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.purpleAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           // Per-type subtotals
           if (subtotalsByType.isNotEmpty) ...[
             const SizedBox(height: 4),

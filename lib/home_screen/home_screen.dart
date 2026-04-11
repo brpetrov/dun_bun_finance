@@ -1,5 +1,6 @@
 import 'package:dun_bun_finance/home_screen/dialogs/analysis_review_dialog.dart';
 import 'package:dun_bun_finance/home_screen/dialogs/data_export_dialog.dart';
+import 'package:dun_bun_finance/home_screen/dialogs/debt_payoff_dialog.dart';
 import 'package:dun_bun_finance/home_screen/sections/expense_section.dart';
 import 'package:dun_bun_finance/home_screen/sections/monthly_income_section.dart';
 import 'package:dun_bun_finance/home_screen/sections/pot_section.dart';
@@ -42,6 +43,14 @@ class _HomeScreenState extends State<HomeScreen> {
   String _analysisStatus = '';
   int _analysisElapsed = 0;
   Timer? _analysisTimer;
+
+  // Negotiation banner state (session-only)
+  bool _negotiationBannerDismissed = false;
+
+  // Overdue loan banner state (session-only)
+  bool _loanOverdueBannerDismissed = false;
+
+  double subscriptionsTotal = 0.0;
 
   @override
   void initState() {
@@ -112,6 +121,17 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
 
+      // Compute subscriptions subtotal
+      double nextSubscriptionsTotal = 0.0;
+      for (final e in allExpenses) {
+        if ((e['category'] as String?) == 'Subscription') {
+          final rawCost = e['cost'];
+          nextSubscriptionsTotal += rawCost is num
+              ? rawCost.toDouble()
+              : double.tryParse(rawCost?.toString() ?? '') ?? 0.0;
+        }
+      }
+
       if (!mounted) return;
 
       setState(() {
@@ -120,6 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
         totalExpenses = nextTotalExpenses;
         incomeAfterExpenses = nextIncomeAfterExpenses;
         subtotalsByType = nextSubtotals;
+        subscriptionsTotal = nextSubscriptionsTotal;
         isLoading = false;
       });
     } catch (error, stackTrace) {
@@ -330,6 +351,157 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _handleDeleteAccount() async {
+    final passwordController = TextEditingController();
+    bool obscure = true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.delete_forever, color: Colors.redAccent, size: 22),
+              SizedBox(width: 8),
+              Text('Delete Account'),
+            ],
+          ),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: Colors.redAccent.withValues(alpha: 0.3)),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'This cannot be undone.',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.redAccent,
+                            fontSize: 13,
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          'All your expenses, pots, and account data will be permanently deleted from our servers.',
+                          style: TextStyle(fontSize: 12, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Enter your password to confirm:',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: obscure,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscure ? Icons.visibility_off : Icons.visibility,
+                          size: 18,
+                        ),
+                        onPressed: () =>
+                            setDialogState(() => obscure = !obscure),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete Everything'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final password = passwordController.text;
+    passwordController.dispose();
+
+    if (password.isEmpty) {
+      _showSnackBar('Password is required', backgroundColor: Colors.redAccent);
+      return;
+    }
+
+    try {
+      if (mounted) setState(() => isLoading = true);
+      await FirestoreService.deleteUserData();
+      await AuthService.deleteAccount(password);
+
+      if (!mounted) return;
+      setState(() => isLoading = false);
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_outline,
+                  color: Colors.greenAccent, size: 22),
+              SizedBox(width: 8),
+              Text('Account Deleted'),
+            ],
+          ),
+          content: const Text(
+            'Your account and all associated data have been permanently deleted.',
+            style: TextStyle(fontSize: 13, color: Colors.white70),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
+      if (mounted) Navigator.of(context).pushReplacementNamed('/login');
+    } catch (error, stackTrace) {
+      _logError('_handleDeleteAccount', error, stackTrace);
+      if (mounted) setState(() => isLoading = false);
+      _showSnackBar(
+        error.toString().contains('wrong-password') ||
+                error.toString().contains('invalid-credential')
+            ? 'Incorrect password. Please try again.'
+            : 'Failed to delete account: $error',
+        backgroundColor: Colors.redAccent,
+      );
+    }
+  }
+
   Future<void> _handleLogout() async {
     try {
       await AuthService.signOut();
@@ -351,6 +523,277 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (_) => DataExportDialog(
         expenses: expenses,
         pots: pots,
+      ),
+    );
+  }
+
+  void _showAboutDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.wallet, size: 22, color: Colors.tealAccent),
+            SizedBox(width: 10),
+            Text('How It All Works'),
+          ],
+        ),
+        content: const SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _AboutPoint(
+                  icon: Icons.attach_money,
+                  color: Colors.tealAccent,
+                  title: '1 — Enter your monthly income',
+                  body:
+                      'Type your take-home pay at the top. Everything else is calculated from this number, so keep it up to date each month.',
+                ),
+                SizedBox(height: 12),
+                _AboutPoint(
+                  icon: Icons.receipt_long_outlined,
+                  color: Colors.orangeAccent,
+                  title: '2 — Add your expenses',
+                  body:
+                      'Log every regular outgoing — rent, subscriptions, debts, savings contributions. Expenses are grouped into four types: Debt, Bills, Savings, and Budget.',
+                ),
+                SizedBox(height: 12),
+                _AboutPoint(
+                  icon: Icons.sync,
+                  color: Colors.amber,
+                  title: '3 — Mark variable amounts monthly',
+                  body:
+                      'Credit cards and similar expenses change each month. Mark them as "Variable" and the app will remind you to update the amount at the start of each month.',
+                ),
+                SizedBox(height: 12),
+                _AboutPoint(
+                  icon: Icons.savings_outlined,
+                  color: Colors.greenAccent,
+                  title: '4 — Set up pots',
+                  body:
+                      'Pots split what\'s left after expenses. Assign each pot a percentage — for example 50% emergency fund, 30% holiday, 20% fun money — and the app calculates the exact pound amount automatically.',
+                ),
+                SizedBox(height: 12),
+                _AboutPoint(
+                  icon: Icons.handshake_outlined,
+                  color: Colors.purpleAccent,
+                  title: '5 — Review your bills regularly',
+                  body:
+                      'Bills older than a year without a review are flagged in amber. Tap "Mark Reviewed" after checking a bill to reset the timer and stay on top of better deals.',
+                ),
+                SizedBox(height: 12),
+                _AboutPoint(
+                  icon: Icons.trending_down,
+                  color: Colors.redAccent,
+                  title: '6 — Plan your debt payoff',
+                  body:
+                      'Use the Debt Payoff Plan (admin menu) to compare the Avalanche and Snowball strategies. Enter a monthly budget and see exactly when you\'ll be debt-free and how much interest you\'ll pay.',
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Your data is stored securely in the cloud and syncs across devices whenever you log in.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.white54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showDebtPayoffDialog() async {
+    final debts =
+        expenses.where((e) => (e['expenseType'] ?? 'bill') == 'debt').toList();
+    await showDialog<void>(
+      context: context,
+      builder: (_) => DebtPayoffDialog(debts: debts),
+    );
+  }
+
+  Future<void> _markReviewed(Map<String, dynamic> expense) async {
+    try {
+      await FirestoreService.markExpenseReviewed(expense['id'] as String);
+      await _refreshData();
+      _showSnackBar('${expense['name']} marked as reviewed');
+    } catch (error, stackTrace) {
+      _logError('_markReviewed', error, stackTrace);
+      _showSnackBar('Failed to mark reviewed: $error',
+          backgroundColor: Colors.redAccent);
+    }
+  }
+
+  int _monthsSince(String isoDate) {
+    final dt = DateTime.tryParse(isoDate);
+    if (dt == null) return 0;
+    final now = DateTime.now();
+    return (now.year - dt.year) * 12 + (now.month - dt.month);
+  }
+
+  List<Map<String, dynamic>> get _staleNegotiations {
+    final cutoff = DateTime.now().subtract(const Duration(days: 365));
+    return expenses.where((e) {
+      if ((e['expenseType'] ?? 'bill') != 'bill') return false;
+      final lastReviewed = e['lastNegotiatedAt'] as String?;
+      if (lastReviewed != null) {
+        // Previously reviewed — flag if over 12 months ago
+        final dt = DateTime.tryParse(lastReviewed);
+        return dt != null && dt.isBefore(cutoff);
+      }
+      // Never reviewed — flag if bill was created over 12 months ago
+      final rawCreatedAt = e['createdAt'];
+      if (rawCreatedAt == null) return false;
+      final createdAt = DateTime.tryParse(rawCreatedAt.toString());
+      return createdAt != null && createdAt.isBefore(cutoff);
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> get _overdueLoans {
+    final now = DateTime.now();
+    return expenses.where((e) {
+      if (e['isLoan'] != true) return false;
+      final endRaw = e['loanEndDate'];
+      if (endRaw == null) return false;
+      final endDate = DateTime.tryParse(endRaw.toString());
+      return endDate != null && endDate.isBefore(now);
+    }).toList();
+  }
+
+  Widget _buildLoanOverdueBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    size: 16, color: Colors.redAccent),
+                const SizedBox(width: 8),
+                const Text(
+                  'Overdue loans / contracts',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.redAccent,
+                    fontSize: 13,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close,
+                      size: 16, color: Colors.redAccent),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () =>
+                      setState(() => _loanOverdueBannerDismissed = true),
+                ),
+              ],
+            ),
+          ),
+          ..._overdueLoans.map((e) {
+            final endRaw = e['loanEndDate'] as String?;
+            final endDate =
+                endRaw != null ? DateTime.tryParse(endRaw) : null;
+            final daysOverdue = endDate != null
+                ? DateTime.now().difference(endDate).inDays
+                : 0;
+            return ListTile(
+              dense: true,
+              leading: const Icon(Icons.credit_card,
+                  size: 18, color: Colors.redAccent),
+              title: Text(e['name'] as String),
+              subtitle: Text(
+                'End date: ${endDate != null ? '${endDate.day}/${endDate.month}/${endDate.year}' : 'unknown'} · $daysOverdue day${daysOverdue == 1 ? '' : 's'} overdue',
+                style: TextStyle(
+                    fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+              ),
+            );
+          }),
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNegotiationBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
+            child: Row(
+              children: [
+                const Icon(Icons.handshake_outlined,
+                    size: 16, color: Colors.amber),
+                const SizedBox(width: 8),
+                const Text(
+                  'Bills to renegotiate',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber,
+                      fontSize: 13),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 16, color: Colors.amber),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () =>
+                      setState(() => _negotiationBannerDismissed = true),
+                ),
+              ],
+            ),
+          ),
+          ..._staleNegotiations.map((e) {
+            final months = _monthsSince(e['lastNegotiatedAt'] as String);
+            return ListTile(
+              dense: true,
+              title: Text(e['name'] as String),
+              subtitle: Text(
+                '$months months since last review · Renegotiating could save money',
+                style: TextStyle(
+                    fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+              ),
+              trailing: FilledButton(
+                onPressed: () => _markReviewed(e),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  foregroundColor: Colors.black,
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                child:
+                    const Text('Mark Reviewed', style: TextStyle(fontSize: 12)),
+              ),
+            );
+          }),
+          const SizedBox(height: 4),
+        ],
       ),
     );
   }
@@ -397,12 +840,18 @@ class _HomeScreenState extends State<HomeScreen> {
               switch (value) {
                 case 'analyze':
                   _analyzeStatement();
+                case 'debt_plan':
+                  _showDebtPayoffDialog();
                 case 'refresh':
                   _handleRefresh();
                 case 'export':
                   _showDataExportDialog();
+                case 'about':
+                  _showAboutDialog();
                 case 'logout':
                   _handleLogout();
+                case 'delete_account':
+                  _handleDeleteAccount();
               }
             },
             itemBuilder: (context) => [
@@ -412,6 +861,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListTile(
                     leading: Icon(Icons.auto_awesome),
                     title: Text('Analyze Statement'),
+                    dense: true,
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'debt_plan',
+                  child: ListTile(
+                    leading: Icon(Icons.trending_down),
+                    title: Text('Debt Payoff Plan'),
                     dense: true,
                   ),
                 ),
@@ -434,10 +891,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const PopupMenuItem(
+                value: 'about',
+                child: ListTile(
+                  leading: Icon(Icons.info_outline),
+                  title: Text('How it Works'),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
                 value: 'logout',
                 child: ListTile(
                   leading: Icon(Icons.logout),
                   title: Text('Logout'),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete_account',
+                child: ListTile(
+                  leading: Icon(Icons.delete_forever, color: Colors.redAccent),
+                  title: Text(
+                    'Delete Account',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
                   dense: true,
                 ),
               ),
@@ -460,6 +937,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
+                  if (!_loanOverdueBannerDismissed && _overdueLoans.isNotEmpty)
+                    _buildLoanOverdueBanner(),
+                  if (!_negotiationBannerDismissed &&
+                      _staleNegotiations.isNotEmpty)
+                    _buildNegotiationBanner(),
                   if (_isAnalyzing)
                     Container(
                       width: double.infinity,
@@ -510,7 +992,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: SingleChildScrollView(
                       child: Padding(
-                        padding: const EdgeInsets.all(10.0),
+                        padding: const EdgeInsets.all(18.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -528,6 +1010,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               totalExpenses: totalExpenses,
                               incomeAfterExpenses: incomeAfterExpenses,
                               subtotalsByType: subtotalsByType,
+                              subscriptionsTotal: subscriptionsTotal,
                             ),
                             const Divider(),
                             PotsSection(
@@ -543,6 +1026,63 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
       ),
+    );
+  }
+}
+
+class _AboutPoint extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String body;
+
+  const _AboutPoint({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                body,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.65),
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

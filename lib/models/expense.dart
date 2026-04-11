@@ -68,6 +68,8 @@ class Expense {
   String category = 'Other';
   ExpenseType expenseType = ExpenseType.bill;
   bool isVariable = false;
+  double? interestRate;
+  String? lastNegotiatedAt;
   DateTime? createdAt;
   DateTime? updatedAt;
   bool isLoan = false;
@@ -102,6 +104,8 @@ class Expense {
     this.category = 'Other',
     this.expenseType = ExpenseType.bill,
     this.isVariable = false,
+    this.interestRate,
+    this.lastNegotiatedAt,
     this.createdAt,
     this.updatedAt,
     required this.isLoan,

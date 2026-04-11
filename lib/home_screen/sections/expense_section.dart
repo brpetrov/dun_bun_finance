@@ -55,6 +55,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
   Widget build(BuildContext context) {
     final TextEditingController expenseNameController = TextEditingController();
     final TextEditingController expenseCostController = TextEditingController();
+    final TextEditingController interestRateController = TextEditingController();
     var isLoan = false;
     var selectedCategory = 'Other';
     var selectedExpenseType = ExpenseType.bill;
@@ -73,6 +74,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
           category: selectedCategory,
           expenseType: selectedExpenseType.name,
           isVariable: isVariable,
+          interestRate: double.tryParse(interestRateController.text.trim()),
         );
         await widget.onExpenseUpdated();
         return true;
@@ -94,6 +96,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
           'category': selectedCategory,
           'expenseType': selectedExpenseType.name,
           'isVariable': isVariable,
+          'interestRate': double.tryParse(interestRateController.text.trim()),
           'isLoan': isLoan,
           'loanStartDate': loanStartDate?.toIso8601String(),
           'loanEndDate': loanEndDate?.toIso8601String(),
@@ -142,6 +145,10 @@ class _ExpensesSectionState extends State<ExpensesSection> {
           selectedExpenseType = ExpenseType.fromString(expense['expenseType']);
           isVariable = expense['isVariable'] == true;
           isLoan = expense['isLoan'] == true;
+          final rawRate = expense['interestRate'];
+          interestRateController.text = rawRate != null
+              ? (rawRate as num).toDouble().toString()
+              : '';
           final rawLoanStartDate = expense['loanStartDate'];
           final rawLoanEndDate = expense['loanEndDate'];
 
@@ -156,6 +163,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
         } else {
           expenseNameController.clear();
           expenseCostController.clear();
+          interestRateController.clear();
           selectedCategory = 'Other';
           selectedExpenseType = preselectedType ?? ExpenseType.bill;
           isVariable = false;
@@ -389,7 +397,89 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                             },
                             contentPadding: EdgeInsets.zero,
                           ),
+                          if (id != null &&
+                              selectedExpenseType == ExpenseType.bill) ...[
+                            const SizedBox(height: 10),
+                            Builder(builder: (context) {
+                              final expense = widget.expenses.firstWhere(
+                                  (e) => e['id'] == id,
+                                  orElse: () => {});
+                              final last =
+                                  expense['lastNegotiatedAt'] as String?;
+                              final stale = _isReviewStale(expense);
+                              final color = stale
+                                  ? Colors.amber
+                                  : Colors.green.shade400;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: color.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.handshake_outlined,
+                                        size: 16, color: color),
+                                    const SizedBox(width: 8),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Last reviewed',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.white
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        ),
+                                        Text(
+                                          last != null
+                                              ? _friendlyDate(last)
+                                              : 'Never reviewed',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: color,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const Spacer(),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.info_outline,
+                                        size: 18,
+                                        color: Colors.white
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                      tooltip: 'Why review bills?',
+                                      visualDensity: VisualDensity.compact,
+                                      onPressed: () =>
+                                          _showReviewInfoDialog(context),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
                           if (selectedExpenseType == ExpenseType.debt) ...[
+                            TextField(
+                              controller: interestRateController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              decoration: const InputDecoration(
+                                labelText: 'Interest Rate',
+                                border: OutlineInputBorder(),
+                                suffixText: '% p.a.',
+                                hintText: 'e.g. 19.9',
+                              ),
+                            ),
+                            const SizedBox(height: 10),
                             CheckboxListTile(
                               title: const Text('Contract'),
                               value: isLoan,
@@ -431,6 +521,21 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                     ),
                   ),
                   actions: [
+                    if (id != null &&
+                        selectedExpenseType == ExpenseType.bill)
+                      TextButton.icon(
+                        icon: const Icon(Icons.handshake_outlined,
+                            size: 16, color: Colors.amber),
+                        label: const Text(
+                          'Mark Reviewed',
+                          style: TextStyle(color: Colors.amber),
+                        ),
+                        onPressed: () async {
+                          await FirestoreService.markExpenseReviewed(id);
+                          await widget.onExpenseUpdated();
+                          _showSnackBar('Marked as reviewed');
+                        },
+                      ),
                     ElevatedButton(
                       onPressed: () async {
                         final validationError = validateFields();
@@ -565,6 +670,11 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                     size: 16,
                     color: Colors.amber.withValues(alpha: 0.7),
                   ),
+                ),
+              if (expType == ExpenseType.bill)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: _buildReviewIcon(expense),
                 ),
             ],
           ),
@@ -787,8 +897,139 @@ class _ExpensesSectionState extends State<ExpensesSection> {
     );
   }
 
+  void _showReviewInfoDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.handshake_outlined, size: 20, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('Why Review Bills?'),
+          ],
+        ),
+        content: const SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ReviewInfoPoint(
+                  icon: Icons.trending_down,
+                  color: Colors.greenAccent,
+                  title: 'Save money',
+                  body:
+                      'Providers regularly offer better deals to new customers. Reviewing annually means you can switch or negotiate a lower rate instead of quietly paying more.',
+                ),
+                SizedBox(height: 12),
+                _ReviewInfoPoint(
+                  icon: Icons.auto_awesome,
+                  color: Colors.blueAccent,
+                  title: 'Spot price creep',
+                  body:
+                      'Many subscriptions and utilities raise prices with little notice. A yearly check catches silent increases before they add up.',
+                ),
+                SizedBox(height: 12),
+                _ReviewInfoPoint(
+                  icon: Icons.delete_sweep_outlined,
+                  color: Colors.orangeAccent,
+                  title: 'Cut what you no longer use',
+                  body:
+                      "It's easy to forget about services you signed up for. Regular reviews help you cancel anything that no longer adds value.",
+                ),
+                SizedBox(height: 12),
+                _ReviewInfoPoint(
+                  icon: Icons.shield_outlined,
+                  color: Colors.purpleAccent,
+                  title: 'Stay in control',
+                  body:
+                      "Knowing exactly what you pay and when your contracts are up puts you in a stronger position when it's time to renegotiate.",
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Tap "Mark Reviewed" after checking a bill to reset the timer and keep your records up to date.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.white54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  /// Returns a human-friendly relative date string.
+  String _friendlyDate(String? isoDate) {
+    if (isoDate == null) return 'Never';
+    final dt = DateTime.tryParse(isoDate);
+    if (dt == null) return 'Unknown';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inDays < 1) return 'Today';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays} days ago';
+    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()} weeks ago';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()} months ago';
+    final years = (diff.inDays / 365).floor();
+    return years == 1 ? '1 year ago' : '$years years ago';
+  }
+
+  bool _isReviewStale(Map<String, dynamic> expense) {
+    final last = expense['lastNegotiatedAt'] as String?;
+    final cutoff = DateTime.now().subtract(const Duration(days: 365));
+    if (last != null) {
+      final dt = DateTime.tryParse(last);
+      return dt == null || dt.isBefore(cutoff);
+    }
+    final rawCreatedAt = expense['createdAt'];
+    if (rawCreatedAt == null) return false;
+    final createdAt = DateTime.tryParse(rawCreatedAt.toString());
+    return createdAt != null && createdAt.isBefore(cutoff);
+  }
+
+  Widget _buildReviewIcon(Map<String, dynamic> expense) {
+    final stale = _isReviewStale(expense);
+    final last = expense['lastNegotiatedAt'] as String?;
+    final friendlyLabel = last != null ? _friendlyDate(last) : 'Never';
+    final color = stale
+        ? Colors.amber.withValues(alpha: 0.85)
+        : Colors.green.withValues(alpha: 0.75);
+    return Tooltip(
+      message: last != null ? 'Reviewed $friendlyLabel' : 'Never reviewed',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.35), width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.handshake_outlined, size: 12, color: color),
+            const SizedBox(width: 3),
+            Text(
+              friendlyLabel,
+              style: TextStyle(fontSize: 10, color: color),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Color _getExpiryColor(DateTime? endDate) {
@@ -875,6 +1116,63 @@ class _ExpensesSectionState extends State<ExpensesSection> {
             color: expiryColor,
             fontWeight: FontWeight.bold,
             fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReviewInfoPoint extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String body;
+
+  const _ReviewInfoPoint({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                body,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.65),
+                  height: 1.4,
+                ),
+              ),
+            ],
           ),
         ),
       ],

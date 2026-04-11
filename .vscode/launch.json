@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter (Windows)",
+      "request": "launch",
+      "type": "dart",
+      "args": ["-d", "windows"]
+    },
+    {
+      "name": "Flutter (Brave)",
+      "request": "launch",
+      "type": "dart",
+      "args": ["-d", "web-server"],
+      "env": {
+        "CHROME_EXECUTABLE": "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
+      }
+    }
+  ]
+}
