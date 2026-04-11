@@ -146,14 +146,13 @@ class _AnalysisReviewDialogState extends State<AnalysisReviewDialog> {
                               children: [
                                 Icon(Icons.arrow_right,
                                     size: 18,
-                                    color:
-                                        Colors.white.withValues(alpha: 0.4)),
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(s.description,
                                       style: TextStyle(
                                           fontSize: 13,
-                                          color: Colors.white
+                                          color: Theme.of(context).colorScheme.onSurface
                                               .withValues(alpha: 0.7))),
                                 ),
                               ],
@@ -233,7 +232,7 @@ class _AnalysisReviewDialogState extends State<AnalysisReviewDialog> {
                   Text(subtitle,
                       style: TextStyle(
                           fontSize: 11,
-                          color: Colors.white.withValues(alpha: 0.4))),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4))),
                 ],
               ),
             ],
@@ -261,8 +260,7 @@ class _AnalysisReviewDialogState extends State<AnalysisReviewDialog> {
                           Text(s.description,
                               style: TextStyle(
                                   fontSize: 12,
-                                  color:
-                                      Colors.white.withValues(alpha: 0.5))),
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
                           const SizedBox(height: 6),
                           Row(
                             children: [

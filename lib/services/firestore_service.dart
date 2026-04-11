@@ -234,6 +234,114 @@ class FirestoreService {
     return role;
   }
 
+  // --- MONTHLY SNAPSHOTS ---
+
+  static CollectionReference get _snapshotsCol =>
+      _userDoc.collection('monthly_snapshots');
+
+  /// Upserts a snapshot for the given month key (format: 'YYYY-MM').
+  static Future<void> saveMonthlySnapshot({
+    required String month,
+    required double totalExpenses,
+    required Map<String, double> subtotalsByType,
+    required double income,
+  }) async {
+    await _snapshotsCol.doc(month).set({
+      'month': month,
+      'totalExpenses': totalExpenses,
+      'subtotalsByType': subtotalsByType,
+      'income': income,
+      'savedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<List<Map<String, dynamic>>> getMonthlySnapshots() async {
+    final snapshot =
+        await _snapshotsCol.orderBy('month', descending: false).get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      data['id'] = doc.id;
+      return data;
+    }).toList();
+  }
+
+  // --- MAINTENANCE ---
+
+  static CollectionReference get _maintenanceCol =>
+      _userDoc.collection('maintenance');
+
+  static Future<void> createMaintenanceItem({
+    required String name,
+    required String category,
+    required String description,
+    required int frequencyMonths,
+    required String? nextDueDate,
+  }) async {
+    await _maintenanceCol.add({
+      'name': name,
+      'category': category,
+      'description': description,
+      'frequencyMonths': frequencyMonths,
+      'lastDoneDate': null,
+      'nextDueDate': nextDueDate,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> createMaintenanceItems(
+      List<Map<String, dynamic>> items) async {
+    final batch = _firestore.batch();
+    for (final item in items) {
+      batch.set(_maintenanceCol.doc(), {
+        ...item,
+        'lastDoneDate': null,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+
+  static Future<List<Map<String, dynamic>>> getMaintenanceItems() async {
+    final snapshot = await _maintenanceCol.orderBy('createdAt').get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      data['id'] = doc.id;
+      // Normalize Timestamps to ISO strings
+      for (final key in ['nextDueDate', 'lastDoneDate', 'createdAt']) {
+        final raw = data[key];
+        if (raw is Timestamp) {
+          data[key] = raw.toDate().toIso8601String();
+        }
+      }
+      return data;
+    }).toList();
+  }
+
+  static Future<void> updateMaintenanceItem(
+      String docId, Map<String, dynamic> data) async {
+    await _maintenanceCol.doc(docId).update(data);
+  }
+
+  static Future<void> markMaintenanceDone(
+      String docId, int frequencyMonths) async {
+    final now = DateTime.now();
+    final nextDue =
+        DateTime(now.year, now.month + frequencyMonths, now.day);
+    await _maintenanceCol.doc(docId).update({
+      'lastDoneDate': now.toIso8601String(),
+      'nextDueDate': nextDue.toIso8601String(),
+    });
+  }
+
+  static Future<void> deleteMaintenanceItem(String docId) async {
+    await _maintenanceCol.doc(docId).delete();
+  }
+
+  static Future<bool> hasMaintenanceItems() async {
+    final snapshot = await _maintenanceCol.limit(1).get();
+    return snapshot.docs.isNotEmpty;
+  }
+
   // --- CLEAR ALL ---
 
   static Future<void> clearAll() async {
@@ -257,6 +365,14 @@ class FirestoreService {
     }
     final potsDocs = await _potsCol.get();
     for (final doc in potsDocs.docs) {
+      await doc.reference.delete();
+    }
+    final snapshotDocs = await _snapshotsCol.get();
+    for (final doc in snapshotDocs.docs) {
+      await doc.reference.delete();
+    }
+    final maintenanceDocs = await _maintenanceCol.get();
+    for (final doc in maintenanceDocs.docs) {
       await doc.reference.delete();
     }
     await _userDoc.delete();

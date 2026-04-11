@@ -1,4 +1,6 @@
 import 'package:dun_bun_finance/home_screen/dialogs/analysis_review_dialog.dart';
+import 'package:dun_bun_finance/services/theme_controller.dart';
+import 'package:dun_bun_finance/spending_history/spending_history_screen.dart';
 import 'package:dun_bun_finance/home_screen/dialogs/data_export_dialog.dart';
 import 'package:dun_bun_finance/home_screen/dialogs/debt_payoff_dialog.dart';
 import 'package:dun_bun_finance/home_screen/sections/expense_section.dart';
@@ -56,13 +58,19 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initializeData();
+    ThemeController.notifier.addListener(_onThemeChanged);
   }
 
   @override
   void dispose() {
+    ThemeController.notifier.removeListener(_onThemeChanged);
     _monthlyIncomeController.dispose();
     _analysisTimer?.cancel();
     super.dispose();
+  }
+
+  void _onThemeChanged() {
+    if (mounted) setState(() {});
   }
 
   void _logError(String source, Object error, StackTrace stackTrace) {
@@ -131,6 +139,20 @@ class _HomeScreenState extends State<HomeScreen> {
               : double.tryParse(rawCost?.toString() ?? '') ?? 0.0;
         }
       }
+
+      if (!mounted) return;
+
+      // Save a snapshot for the current month
+      final now = DateTime.now();
+      final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      final income =
+          double.tryParse(_monthlyIncomeController.text.trim()) ?? 0.0;
+      await FirestoreService.saveMonthlySnapshot(
+        month: monthKey,
+        totalExpenses: nextTotalExpenses,
+        subtotalsByType: Map<String, double>.from(nextSubtotals),
+        income: income,
+      );
 
       if (!mounted) return;
 
@@ -382,10 +404,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       border: Border.all(
                           color: Colors.redAccent.withValues(alpha: 0.3)),
                     ),
-                    child: const Column(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'This cannot be undone.',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
@@ -393,10 +415,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontSize: 13,
                           ),
                         ),
-                        SizedBox(height: 6),
+                        const SizedBox(height: 6),
                         Text(
                           'All your expenses, pots, and account data will be permanently deleted from our servers.',
-                          style: TextStyle(fontSize: 12, color: Colors.white70),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.6)),
                         ),
                       ],
                     ),
@@ -475,9 +502,14 @@ class _HomeScreenState extends State<HomeScreen> {
               Text('Account Deleted'),
             ],
           ),
-          content: const Text(
+          content: Text(
             'Your account and all associated data have been permanently deleted.',
-            style: TextStyle(fontSize: 13, color: Colors.white70),
+            style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.7)),
           ),
           actions: [
             FilledButton(
@@ -538,14 +570,14 @@ class _HomeScreenState extends State<HomeScreen> {
             Text('How It All Works'),
           ],
         ),
-        content: const SizedBox(
+        content: SizedBox(
           width: 480,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _AboutPoint(
+                const _AboutPoint(
                   icon: Icons.attach_money,
                   color: Colors.tealAccent,
                   title: '1 — Enter your monthly income',
@@ -598,7 +630,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
-                    color: Colors.white54,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.54),
                   ),
                 ),
               ],
@@ -613,6 +648,24 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  void _openSpendingHistory() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SpendingHistoryScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openMaintenance() async {
+    final hasItems = await FirestoreService.hasMaintenanceItems();
+    if (!mounted) return;
+    if (hasItems) {
+      Navigator.of(context).pushNamed('/maintenance');
+    } else {
+      Navigator.of(context).pushNamed('/maintenance/setup');
+    }
   }
 
   Future<void> _showDebtPayoffDialog() async {
@@ -711,11 +764,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ..._overdueLoans.map((e) {
             final endRaw = e['loanEndDate'] as String?;
-            final endDate =
-                endRaw != null ? DateTime.tryParse(endRaw) : null;
-            final daysOverdue = endDate != null
-                ? DateTime.now().difference(endDate).inDays
-                : 0;
+            final endDate = endRaw != null ? DateTime.tryParse(endRaw) : null;
+            final daysOverdue =
+                endDate != null ? DateTime.now().difference(endDate).inDays : 0;
             return ListTile(
               dense: true,
               leading: const Icon(Icons.credit_card,
@@ -724,7 +775,11 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: Text(
                 'End date: ${endDate != null ? '${endDate.day}/${endDate.month}/${endDate.year}' : 'unknown'} · $daysOverdue day${daysOverdue == 1 ? '' : 's'} overdue',
                 style: TextStyle(
-                    fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+                    fontSize: 11,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6)),
               ),
             );
           }),
@@ -777,7 +832,11 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: Text(
                 '$months months since last review · Renegotiating could save money',
                 style: TextStyle(
-                    fontSize: 11, color: Colors.white.withValues(alpha: 0.5)),
+                    fontSize: 11,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6)),
               ),
               trailing: FilledButton(
                 onPressed: () => _markReviewed(e),
@@ -842,6 +901,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   _analyzeStatement();
                 case 'debt_plan':
                   _showDebtPayoffDialog();
+                case 'toggle_theme':
+                  ThemeController.toggle();
+                case 'spending_history':
+                  _openSpendingHistory();
+                case 'maintenance':
+                  _openMaintenance();
                 case 'refresh':
                   _handleRefresh();
                 case 'export':
@@ -882,6 +947,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const PopupMenuDivider(),
               ],
+              PopupMenuItem(
+                value: 'toggle_theme',
+                child: ListTile(
+                  leading: Icon(ThemeController.isDark
+                      ? Icons.light_mode_outlined
+                      : Icons.dark_mode_outlined),
+                  title:
+                      Text(ThemeController.isDark ? 'Light Mode' : 'Dark Mode'),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'spending_history',
+                child: ListTile(
+                  leading: Icon(Icons.bar_chart),
+                  title: Text('Spending History'),
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'maintenance',
+                child: ListTile(
+                  leading: Icon(Icons.build_circle_outlined),
+                  title: Text('Maintenance'),
+                  dense: true,
+                ),
+              ),
               const PopupMenuItem(
                 value: 'refresh',
                 child: ListTile(
@@ -982,7 +1074,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             '${_analysisElapsed}s',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.white.withValues(alpha: 0.5),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.5),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -1075,7 +1170,10 @@ class _AboutPoint extends StatelessWidget {
                 body,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.65),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.65),
                   height: 1.4,
                 ),
               ),

@@ -55,7 +55,8 @@ class _ExpensesSectionState extends State<ExpensesSection> {
   Widget build(BuildContext context) {
     final TextEditingController expenseNameController = TextEditingController();
     final TextEditingController expenseCostController = TextEditingController();
-    final TextEditingController interestRateController = TextEditingController();
+    final TextEditingController interestRateController =
+        TextEditingController();
     var isLoan = false;
     var selectedCategory = 'Other';
     var selectedExpenseType = ExpenseType.bill;
@@ -146,9 +147,8 @@ class _ExpensesSectionState extends State<ExpensesSection> {
           isVariable = expense['isVariable'] == true;
           isLoan = expense['isLoan'] == true;
           final rawRate = expense['interestRate'];
-          interestRateController.text = rawRate != null
-              ? (rawRate as num).toDouble().toString()
-              : '';
+          interestRateController.text =
+              rawRate != null ? (rawRate as num).toDouble().toString() : '';
           final rawLoanStartDate = expense['loanStartDate'];
           final rawLoanEndDate = expense['loanEndDate'];
 
@@ -312,7 +312,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                               labelText: 'Type',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                                  horizontal: 12, vertical: 15),
                             ),
                             child: GridView.count(
                               crossAxisCount: 2,
@@ -344,7 +344,9 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                                       border: Border.all(
                                         color: isSelected
                                             ? type.color
-                                            : Colors.white
+                                            : Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
                                                 .withValues(alpha: 0.15),
                                         width: isSelected ? 1.5 : 1,
                                       ),
@@ -358,7 +360,9 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                                             size: 16,
                                             color: isSelected
                                                 ? type.color
-                                                : Colors.white
+                                                : Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface
                                                     .withValues(alpha: 0.5)),
                                         const SizedBox(width: 6),
                                         Text(
@@ -370,7 +374,9 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                                                 : FontWeight.normal,
                                             color: isSelected
                                                 ? type.color
-                                                : Colors.white
+                                                : Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurface
                                                     .withValues(alpha: 0.5),
                                           ),
                                         ),
@@ -407,9 +413,8 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                               final last =
                                   expense['lastNegotiatedAt'] as String?;
                               final stale = _isReviewStale(expense);
-                              final color = stale
-                                  ? Colors.amber
-                                  : Colors.green.shade400;
+                              final color =
+                                  stale ? Colors.amber : Colors.green.shade400;
                               return Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 8),
@@ -432,7 +437,9 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                                           'Last reviewed',
                                           style: TextStyle(
                                             fontSize: 11,
-                                            color: Colors.white
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
                                                 .withValues(alpha: 0.5),
                                           ),
                                         ),
@@ -453,7 +460,9 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                                       icon: Icon(
                                         Icons.info_outline,
                                         size: 18,
-                                        color: Colors.white
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface
                                             .withValues(alpha: 0.4),
                                       ),
                                       tooltip: 'Why review bills?',
@@ -521,8 +530,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                     ),
                   ),
                   actions: [
-                    if (id != null &&
-                        selectedExpenseType == ExpenseType.bill)
+                    if (id != null && selectedExpenseType == ExpenseType.bill)
                       TextButton.icon(
                         icon: const Icon(Icons.handshake_outlined,
                             size: 16, color: Colors.amber),
@@ -683,7 +691,10 @@ class _ExpensesSectionState extends State<ExpensesSection> {
               Text(
                 '\u00A3${expense['cost']}',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(width: 8),
@@ -732,7 +743,11 @@ class _ExpensesSectionState extends State<ExpensesSection> {
           title: Text(expense['name']),
           subtitle: Text(
             'Last: \u00A3${expense['cost']}',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+            style: TextStyle(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.5)),
           ),
           trailing: FilledButton.icon(
             onPressed: () => showExpensePopup(context, expense['id']),
@@ -860,7 +875,10 @@ class _ExpensesSectionState extends State<ExpensesSection> {
             '(${items.length})',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.4),
             ),
           ),
           const Spacer(),
@@ -908,7 +926,7 @@ class _ExpensesSectionState extends State<ExpensesSection> {
             Text('Why Review Bills?'),
           ],
         ),
-        content: const SizedBox(
+        content: SizedBox(
           width: 420,
           child: SingleChildScrollView(
             child: Column(
@@ -952,7 +970,10 @@ class _ExpensesSectionState extends State<ExpensesSection> {
                   style: TextStyle(
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
-                    color: Colors.white54,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.54),
                   ),
                 ),
               ],
@@ -1168,7 +1189,10 @@ class _ReviewInfoPoint extends StatelessWidget {
                 body,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.65),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.65),
                   height: 1.4,
                 ),
               ),

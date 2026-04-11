@@ -11,7 +11,7 @@
       "name": "Flutter (Brave)",
       "request": "launch",
       "type": "dart",
-      "args": ["-d", "web-server"],
+      "args": ["-d", "web-server", "--web-port=8080"],
       "env": {
         "CHROME_EXECUTABLE": "C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
       }

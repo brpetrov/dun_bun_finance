@@ -181,14 +181,14 @@ class _DebtPayoffDialogState extends State<DebtPayoffDialog>
             Text('How it Works'),
           ],
         ),
-        content: const SizedBox(
+        content: SizedBox(
           width: 420,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _InfoPoint(
+                const _InfoPoint(
                   icon: Icons.local_fire_department,
                   color: Colors.redAccent,
                   title: 'Avalanche — save the most money',
@@ -225,7 +225,7 @@ class _DebtPayoffDialogState extends State<DebtPayoffDialog>
                   style: TextStyle(
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
-                    color: Colors.white54,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.54),
                   ),
                 ),
               ],
@@ -500,7 +500,7 @@ class _InfoPoint extends StatelessWidget {
                 body,
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.white.withValues(alpha: 0.65),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
                   height: 1.4,
                 ),
               ),
@@ -530,7 +530,7 @@ class _StatCard extends StatelessWidget {
           children: [
             Text(label,
                 style: TextStyle(
-                    fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                    fontSize: 11, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5))),
             const SizedBox(height: 4),
             Text(value,
                 style: TextStyle(

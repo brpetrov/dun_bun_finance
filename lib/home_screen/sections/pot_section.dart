@@ -255,7 +255,7 @@ class _PotsSectionState extends State<PotsSection> {
                     subtitle: Text(
                       '$percentage%',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                     trailing: Text(
