@@ -662,9 +662,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasItems = await FirestoreService.hasMaintenanceItems();
     if (!mounted) return;
     if (hasItems) {
-      Navigator.of(context).pushNamed('/maintenance');
+      Navigator.of(context).pushNamed('/hub');
     } else {
-      Navigator.of(context).pushNamed('/maintenance/setup');
+      Navigator.of(context).pushNamed('/hub/setup');
     }
   }
 
@@ -988,8 +988,8 @@ class _HomeScreenState extends State<HomeScreen> {
               const PopupMenuItem(
                 value: 'maintenance',
                 child: ListTile(
-                  leading: Icon(Icons.build_circle_outlined),
-                  title: Text('Maintenance'),
+                  leading: Icon(Icons.hub_outlined),
+                  title: Text('Life Hub'),
                   dense: true,
                 ),
               ),
@@ -1130,8 +1130,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const Divider(),
                             PotsSection(
                               pots: pots,
-                              onPotUpdated: () =>
-                                  _refreshData(silent: true),
+                              onPotUpdated: () => _refreshData(silent: true),
                               incomeAfterExpenses: incomeAfterExpenses,
                             ),
                           ],

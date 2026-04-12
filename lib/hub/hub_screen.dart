@@ -1,19 +1,19 @@
-import 'package:dun_bun_finance/maintenance/maintenance_setup_screen.dart';
-import 'package:dun_bun_finance/models/maintenance_item.dart';
+import 'package:dun_bun_finance/hub/hub_item.dart';
+import 'package:dun_bun_finance/hub/hub_setup_screen.dart';
 import 'package:dun_bun_finance/services/firestore_service.dart';
 import 'package:flutter/material.dart';
 
-class MaintenanceScreen extends StatefulWidget {
-  const MaintenanceScreen({super.key});
+class LifeHubScreen extends StatefulWidget {
+  const LifeHubScreen({super.key});
 
   @override
-  State<MaintenanceScreen> createState() => _MaintenanceScreenState();
+  State<LifeHubScreen> createState() => _LifeHubScreenState();
 }
 
-class _MaintenanceScreenState extends State<MaintenanceScreen> {
-  List<MaintenanceItem> _items = [];
+class _LifeHubScreenState extends State<LifeHubScreen> {
+  List<HubItem> _items = [];
   bool _loading = true;
-  MaintenanceCategory? _filterCategory;
+  HubCategory? _filterCategory;
 
   @override
   void initState() {
@@ -34,10 +34,10 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         if (data['lastDoneDate'] != null) {
           lastDone = DateTime.tryParse(data['lastDoneDate'] as String);
         }
-        return MaintenanceItem(
+        return HubItem(
           id: data['id'] as String,
           name: data['name'] as String,
-          category: MaintenanceCategory.fromString(data['category'] as String?),
+          category: HubCategory.fromString(data['category'] as String?),
           description: data['description'] as String? ?? '',
           frequencyMonths: (data['frequencyMonths'] as num?)?.toInt() ?? 12,
           lastDoneDate: lastDone,
@@ -49,7 +49,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
       _items.sort((a, b) {
         final statusOrder = a.status.index.compareTo(b.status.index);
         if (statusOrder != 0) return statusOrder;
-        // Within same status, sort by due date
         if (a.nextDueDate != null && b.nextDueDate != null) {
           return a.nextDueDate!.compareTo(b.nextDueDate!);
         }
@@ -68,7 +67,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
-  Future<void> _markDone(MaintenanceItem item) async {
+  Future<void> _markDone(HubItem item) async {
     await FirestoreService.markMaintenanceDone(item.id, item.frequencyMonths);
     await _loadItems();
     if (mounted) {
@@ -81,11 +80,11 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     }
   }
 
-  Future<void> _editItem(MaintenanceItem item) async {
+  Future<void> _editItem(HubItem item) async {
     final nameController = TextEditingController(text: item.name);
     final descController = TextEditingController(text: item.description);
     int frequencyMonths = item.frequencyMonths;
-    MaintenanceCategory category = item.category;
+    HubCategory category = item.category;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -114,13 +113,13 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
                     maxLines: 3,
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<MaintenanceCategory>(
+                  DropdownButtonFormField<HubCategory>(
                     initialValue: category,
                     decoration: const InputDecoration(
                       labelText: 'Category',
                       border: OutlineInputBorder(),
                     ),
-                    items: MaintenanceCategory.values
+                    items: HubCategory.values
                         .map((c) => DropdownMenuItem(
                               value: c,
                               child: Row(
@@ -195,12 +194,12 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
 
   static const _frequencyOptions = [1, 3, 6, 12, 18, 24, 60, 120];
 
-  Future<void> _deleteItem(MaintenanceItem item) async {
+  Future<void> _deleteItem(HubItem item) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove Reminder'),
-        content: Text('Remove "${item.name}" from your maintenance list?'),
+        content: Text('Remove "${item.name}" from your Life Hub?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -208,8 +207,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child:
-                const Text('Remove', style: TextStyle(color: Colors.redAccent)),
+            child: const Text('Remove',
+                style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
@@ -220,7 +219,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     }
   }
 
-  Future<void> _editDueDate(MaintenanceItem item) async {
+  Future<void> _editDueDate(HubItem item) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -240,8 +239,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
   Future<void> _openSetup() async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) =>
-            const MaintenanceSetupScreen(isInitialSetup: false),
+        builder: (_) => const LifeHubSetupScreen(isInitialSetup: false),
       ),
     );
     if (result == true) {
@@ -249,25 +247,25 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     }
   }
 
-  List<MaintenanceItem> get _filteredItems {
+  List<HubItem> get _filteredItems {
     if (_filterCategory == null) return _items;
     return _items.where((i) => i.category == _filterCategory).toList();
   }
 
-  int _countByStatus(MaintenanceStatus status) {
+  int _countByStatus(HubStatus status) {
     return _items.where((i) => i.status == status).length;
   }
 
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final overdueCount = _countByStatus(MaintenanceStatus.overdue);
-    final dueSoonCount = _countByStatus(MaintenanceStatus.dueSoon);
-    final upcomingCount = _countByStatus(MaintenanceStatus.upcoming);
+    final overdueCount = _countByStatus(HubStatus.overdue);
+    final dueSoonCount = _countByStatus(HubStatus.dueSoon);
+    final upcomingCount = _countByStatus(HubStatus.upcoming);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Maintenance'),
+        title: const Text('Life Hub'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
@@ -291,24 +289,34 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
               ? _buildEmptyState()
               : Column(
                   children: [
-                    // Status summary bar
                     if (overdueCount > 0 ||
                         dueSoonCount > 0 ||
                         upcomingCount > 0)
                       _buildStatusBar(
                           overdueCount, dueSoonCount, upcomingCount),
-                    // Category filter chips
                     _buildFilterChips(onSurface),
-                    // Items list
                     Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: _loadItems,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.only(bottom: 80),
-                          itemCount: _filteredItems.length,
-                          itemBuilder: (_, i) =>
-                              _buildItemCard(_filteredItems[i]),
-                        ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = constraints.maxWidth >= 600 ? 2 : 1;
+                          return RefreshIndicator(
+                            onRefresh: _loadItems,
+                            child: GridView.builder(
+                              padding:
+                                  const EdgeInsets.fromLTRB(12, 8, 12, 80),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: columns,
+                                mainAxisExtent: 108,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                              ),
+                              itemCount: _filteredItems.length,
+                              itemBuilder: (_, i) =>
+                                  _buildItemCard(_filteredItems[i]),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -321,7 +329,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.build_circle_outlined,
+          Icon(Icons.hub_outlined,
               size: 64,
               color: Theme.of(context)
                   .colorScheme
@@ -329,7 +337,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
                   .withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           Text(
-            'No maintenance reminders yet',
+            'No Life Hub reminders yet',
             style: TextStyle(
               fontSize: 16,
               color: Theme.of(context)
@@ -361,21 +369,21 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
       child: Row(
         children: [
           if (overdue > 0) ...[
-            _statusChip('$overdue Overdue', MaintenanceStatus.overdue),
+            _statusChip('$overdue Overdue', HubStatus.overdue),
             const SizedBox(width: 8),
           ],
           if (dueSoon > 0) ...[
-            _statusChip('$dueSoon Due Soon', MaintenanceStatus.dueSoon),
+            _statusChip('$dueSoon Due Soon', HubStatus.dueSoon),
             const SizedBox(width: 8),
           ],
           if (upcoming > 0)
-            _statusChip('$upcoming Coming Up', MaintenanceStatus.upcoming),
+            _statusChip('$upcoming Coming Up', HubStatus.upcoming),
         ],
       ),
     );
   }
 
-  Widget _statusChip(String label, MaintenanceStatus status) {
+  Widget _statusChip(String label, HubStatus status) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -402,8 +410,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
   }
 
   Widget _buildFilterChips(Color onSurface) {
-    final categories =
-        _items.map((i) => i.category).toSet().toList()..sort((a, b) => a.index.compareTo(b.index));
+    final categories = _items.map((i) => i.category).toSet().toList()
+      ..sort((a, b) => a.index.compareTo(b.index));
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -417,16 +425,15 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
           ),
           const SizedBox(width: 6),
           ...categories.map((cat) {
-            final count =
-                _items.where((i) => i.category == cat).length;
+            final count = _items.where((i) => i.category == cat).length;
             return Padding(
               padding: const EdgeInsets.only(right: 6),
               child: FilterChip(
                 avatar: Icon(cat.icon, size: 16, color: cat.color),
                 label: Text('${cat.label} ($count)'),
                 selected: _filterCategory == cat,
-                onSelected: (_) => setState(
-                    () => _filterCategory = _filterCategory == cat ? null : cat),
+                onSelected: (_) => setState(() =>
+                    _filterCategory = _filterCategory == cat ? null : cat),
               ),
             );
           }),
@@ -435,144 +442,138 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     );
   }
 
-  Widget _buildItemCard(MaintenanceItem item) {
+  Widget _buildItemCard(HubItem item) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final status = item.status;
     final daysUntil = item.nextDueDate?.difference(DateTime.now()).inDays;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      margin: EdgeInsets.zero,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () => _showItemDetails(item),
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(12, 10, 4, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Status indicator
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: status.color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(status.icon, color: status.color, size: 20),
-              ),
-              const SizedBox(width: 12),
-              // Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.name,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: onSurface,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: item.category.color.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            item.category.label,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: item.category.color,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
+              // Icon + title + menu on one row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: status.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(height: 4),
-                    // Due date info
-                    if (item.nextDueDate != null)
-                      Text(
-                        _dueLabel(daysUntil!),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: status.color,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      )
-                    else
-                      Text(
-                        'No due date set',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: onSurface.withValues(alpha: 0.4),
+                    child: Icon(status.icon, color: status.color, size: 17),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: onSurface,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(Icons.more_vert,
+                        size: 16, color: onSurface.withValues(alpha: 0.4)),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'done':
+                          _markDone(item);
+                        case 'edit':
+                          _editItem(item);
+                        case 'date':
+                          _editDueDate(item);
+                        case 'delete':
+                          _deleteItem(item);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'done',
+                        child: ListTile(
+                          leading:
+                              Icon(Icons.check_circle, color: Colors.green),
+                          title: Text('Mark as Done'),
+                          dense: true,
                         ),
                       ),
-                    if (item.lastDoneDate != null)
-                      Text(
-                        'Last done: ${_formatDate(item.lastDoneDate!)}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: onSurface.withValues(alpha: 0.4),
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: ListTile(
+                          leading: Icon(Icons.edit_outlined),
+                          title: Text('Edit'),
+                          dense: true,
                         ),
                       ),
-                  ],
-                ),
+                      const PopupMenuItem(
+                        value: 'date',
+                        child: ListTile(
+                          leading: Icon(Icons.calendar_today),
+                          title: Text('Change Due Date'),
+                          dense: true,
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: ListTile(
+                          leading: Icon(Icons.delete_outline,
+                              color: Colors.redAccent),
+                          title: Text('Remove'),
+                          dense: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              // Quick actions
-              PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert,
-                    size: 18, color: onSurface.withValues(alpha: 0.4)),
-                onSelected: (value) {
-                  switch (value) {
-                    case 'done':
-                      _markDone(item);
-                    case 'edit':
-                      _editItem(item);
-                    case 'date':
-                      _editDueDate(item);
-                    case 'delete':
-                      _deleteItem(item);
-                  }
-                },
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'done',
-                    child: ListTile(
-                      leading: Icon(Icons.check_circle, color: Colors.green),
-                      title: Text('Mark as Done'),
-                      dense: true,
+              const SizedBox(height: 10),
+              // Category badge + due date on same row
+              Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: item.category.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      item.category.label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: item.category.color,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: ListTile(
-                      leading: Icon(Icons.edit_outlined),
-                      title: Text('Edit'),
-                      dense: true,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'date',
-                    child: ListTile(
-                      leading: Icon(Icons.calendar_today),
-                      title: Text('Change Due Date'),
-                      dense: true,
-                    ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: ListTile(
-                      leading:
-                          Icon(Icons.delete_outline, color: Colors.redAccent),
-                      title: Text('Remove'),
-                      dense: true,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.nextDueDate != null
+                          ? _dueLabel(daysUntil!)
+                          : 'No due date set',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: item.nextDueDate != null
+                            ? status.color
+                            : onSurface.withValues(alpha: 0.4),
+                        fontWeight: item.nextDueDate != null
+                            ? FontWeight.w500
+                            : FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -584,7 +585,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     );
   }
 
-  void _showItemDetails(MaintenanceItem item) {
+  void _showItemDetails(HubItem item) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final status = item.status;
 
@@ -605,7 +606,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 width: 40,
@@ -617,7 +617,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Header
             Row(
               children: [
                 Container(
@@ -685,7 +684,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            // Description
             Text(
               item.description,
               style: TextStyle(
@@ -695,7 +693,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Details
             _detailRow(Icons.repeat, 'Frequency',
                 _frequencyLabel(item.frequencyMonths), onSurface),
             if (item.nextDueDate != null)
@@ -705,7 +702,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
               _detailRow(Icons.check, 'Last Done',
                   _formatDate(item.lastDoneDate!), onSurface),
             const SizedBox(height: 16),
-            // Actions
             Row(
               children: [
                 Expanded(

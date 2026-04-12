@@ -2,8 +2,8 @@
 
 import 'package:dun_bun_finance/home_screen/home_screen.dart';
 import 'package:dun_bun_finance/login_screen/login_screen.dart';
-import 'package:dun_bun_finance/maintenance/maintenance_screen.dart';
-import 'package:dun_bun_finance/maintenance/maintenance_setup_screen.dart';
+import 'package:dun_bun_finance/hub/hub_screen.dart';
+import 'package:dun_bun_finance/hub/hub_setup_screen.dart';
 import 'package:dun_bun_finance/services/auth_service.dart';
 import 'package:dun_bun_finance/services/biometric_service.dart';
 import 'package:dun_bun_finance/services/theme_controller.dart';
@@ -293,14 +293,14 @@ class _MainAppState extends State<MainApp> {
             builder: (context) => HomeScreen(username: username),
           );
         }
-        if (settings.name == '/maintenance') {
+        if (settings.name == '/hub') {
           return MaterialPageRoute(
-            builder: (context) => const MaintenanceScreen(),
+            builder: (context) => const LifeHubScreen(),
           );
         }
-        if (settings.name == '/maintenance/setup') {
+        if (settings.name == '/hub/setup') {
           return MaterialPageRoute(
-            builder: (context) => const MaintenanceSetupScreen(),
+            builder: (context) => const LifeHubSetupScreen(),
           );
         }
         return null;
