@@ -1,4 +1,4 @@
-import 'package:dun_bun_finance/hub/hub_item.dart';
+import 'package:dun_bun_finance/screens/hub_screen/hub_item.dart';
 import 'package:dun_bun_finance/services/firestore_service.dart';
 import 'package:flutter/material.dart';
 

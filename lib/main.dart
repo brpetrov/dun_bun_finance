@@ -1,12 +1,12 @@
 // ignore_for_file: prefer_const_constructors
 
-import 'package:dun_bun_finance/home_screen/home_screen.dart';
-import 'package:dun_bun_finance/login_screen/login_screen.dart';
-import 'package:dun_bun_finance/hub/hub_screen.dart';
-import 'package:dun_bun_finance/hub/hub_setup_screen.dart';
+import 'package:dun_bun_finance/screens/home_screen/home_screen.dart';
+import 'package:dun_bun_finance/screens/login_screen/login_screen.dart';
+import 'package:dun_bun_finance/screens/hub_screen/hub_screen.dart';
+import 'package:dun_bun_finance/screens/hub_screen/hub_setup_screen.dart';
 import 'package:dun_bun_finance/services/auth_service.dart';
 import 'package:dun_bun_finance/services/biometric_service.dart';
-import 'package:dun_bun_finance/services/theme_controller.dart';
+import 'package:dun_bun_finance/theme_controller.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:dun_bun_finance/firebase_options.dart';
 import 'package:flutter/foundation.dart';
@@ -59,9 +59,7 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = AuthService.currentUser;
     if (user != null && user.emailVerified) {
-      final username = user.displayName ??
-          user.email?.split('@')[0] ??
-          'User';
+      final username = user.displayName ?? user.email?.split('@')[0] ?? 'User';
       return HomeScreen(username: username);
     }
     return const LoginScreen();
@@ -150,10 +148,9 @@ class _MainAppState extends State<MainApp> {
         style: ElevatedButton.styleFrom(
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -161,8 +158,7 @@ class _MainAppState extends State<MainApp> {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: const Color(0xFF1E1E2A),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
@@ -173,15 +169,13 @@ class _MainAppState extends State<MainApp> {
       snackBarTheme: SnackBarThemeData(
         backgroundColor: const Color(0xFF2A2A36),
         contentTextStyle: const TextStyle(color: Colors.white),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         behavior: SnackBarBehavior.floating,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       listTileTheme: const ListTileThemeData(iconColor: Colors.white70),
       iconTheme: const IconThemeData(color: Colors.white70),
@@ -225,8 +219,7 @@ class _MainAppState extends State<MainApp> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              BorderSide(color: Colors.black.withValues(alpha: 0.15)),
+          borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.15)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -237,18 +230,16 @@ class _MainAppState extends State<MainApp> {
         style: ElevatedButton.styleFrom(
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(foregroundColor: scheme.primary),
       ),
       dialogTheme: DialogThemeData(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
@@ -257,15 +248,13 @@ class _MainAppState extends State<MainApp> {
         }),
       ),
       snackBarTheme: SnackBarThemeData(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         behavior: SnackBarBehavior.floating,
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
